@@ -1,0 +1,76 @@
+.session-loading,
+.dashboard {
+  min-height: 100svh;
+  width: 100%;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  background: #111318;
+  color: #f3f4f6;
+}
+
+.session-loading {
+  font-size: 15px;
+}
+
+.dashboard {
+  padding: 24px;
+}
+
+.dashboard-panel {
+  width: min(100%, 560px);
+  padding: 40px;
+  box-sizing: border-box;
+  border: 1px solid #343842;
+  border-radius: 8px;
+  background: #1b1e25;
+  text-align: left;
+}
+
+.dashboard-label {
+  margin-bottom: 8px;
+  color: #22d3ee;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.dashboard-panel h1 {
+  margin: 0 0 12px;
+  color: #f9fafb;
+  font-size: 32px;
+  line-height: 1.2;
+  letter-spacing: 0;
+}
+
+.dashboard-email {
+  margin-bottom: 32px;
+  color: #aeb4c0;
+}
+
+.logout-button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid #525866;
+  border-radius: 6px;
+  background: #262a33;
+  color: #f3f4f6;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  border-color: #22d3ee;
+}
+
+@media (max-width: 600px) {
+  .dashboard-panel {
+    padding: 28px 22px;
+  }
+
+  .dashboard-panel h1 {
+    font-size: 26px;
+  }
+}
