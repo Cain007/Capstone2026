@@ -8,9 +8,188 @@ datasource db {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                    String          @id @default(cuid())
+  email                 String          @unique
+  passwordHash          String
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  createdCategories     Category[]      @relation("CategoryCreatedBy")
+  updatedCategories     Category[]      @relation("CategoryUpdatedBy")
+  createdProducts       Product[]       @relation("ProductCreatedBy")
+  updatedProducts       Product[]       @relation("ProductUpdatedBy")
+  createdSuppliers      Supplier[]      @relation("SupplierCreatedBy")
+  updatedSuppliers      Supplier[]      @relation("SupplierUpdatedBy")
+  createdPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
+  updatedPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderUpdatedBy")
+}
+
+enum CategoryStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  DISCONTINUED
+  ARCHIVED
+}
+
+enum ProductUnitType {
+  PIECE
+  PACK
+  BOX
+  BOTTLE
+  CARTON
+  GRAM
+  MILLILITER
+}
+
+enum SupplierStatus {
+  ACTIVE
+  ON_HOLD
+  INACTIVE
+  ARCHIVED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model Category {
+  id          String         @id @default(cuid())
+  name        String
+  slug        String         @unique
+  description String?
+  status      CategoryStatus @default(ACTIVE)
+  parentId    String?
+  sortOrder   Int            @default(0)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children  Category[] @relation("CategoryHierarchy")
+  products  Product[]
+  createdBy User?      @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?      @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([name])
+  @@index([parentId])
+  @@index([sortOrder])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Product {
+  id          String          @id @default(cuid())
+  sku         String          @unique
+  slug        String          @unique
+  name        String
+  description String?
+  status      ProductStatus   @default(DRAFT)
+  unitType    ProductUnitType @default(PIECE)
+  price       Decimal         @db.Decimal(12, 2)
+  cost        Decimal?        @db.Decimal(12, 2)
+  categoryId  String
+  createdById String?
+  updatedById String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  category  Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy User?    @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([categoryId])
+  @@index([status])
+  @@index([unitType])
+  @@index([name])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model Supplier {
+  id           String         @id @default(cuid())
+  supplierCode String         @unique
+  name         String
+  legalName    String?
+  status       SupplierStatus @default(ACTIVE)
+  email        String?
+  phone        String?
+  website      String?
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  province     String?
+  postalCode   String?
+  country      String         @default("Philippines")
+  notes        String?
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  createdBy      User?             @relation("SupplierCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy      User?             @relation("SupplierUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  contacts       SupplierContact[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([status])
+  @@index([name])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model SupplierContact {
+  id         String   @id @default(cuid())
+  supplierId String
+  fullName   String
+  position   String?
+  email      String?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([supplierId, isPrimary])
+  @@index([supplierId, isActive])
+}
+
+model PurchaseOrder {
+  id                   String              @id @default(cuid())
+  poNumber             String              @unique
+  supplierId           String
+  status               PurchaseOrderStatus @default(DRAFT)
+  orderedAt            DateTime?
+  expectedDeliveryDate DateTime?
+  receivedAt           DateTime?
+  cancelledAt          DateTime?
+  notes                String?
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  supplier  Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy User?    @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("PurchaseOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([expectedDeliveryDate])
+  @@index([orderedAt])
+  @@index([receivedAt])
+  @@index([createdById])
+  @@index([updatedById])
 }

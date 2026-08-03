@@ -1,0 +1,162 @@
+# Supplier Module Prisma Schema Design
+
+## Best Schema Design
+
+The supplier module is implemented in `backend/prisma/schema.prisma` with these models and enums:
+
+```prisma
+enum SupplierStatus {
+  ACTIVE
+  ON_HOLD
+  INACTIVE
+  ARCHIVED
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  ORDERED
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CANCELLED
+}
+
+model Supplier {
+  id             String            @id @default(cuid())
+  supplierCode   String            @unique
+  name           String
+  legalName      String?
+  status         SupplierStatus    @default(ACTIVE)
+  email          String?
+  phone          String?
+  website        String?
+  addressLine1   String?
+  addressLine2   String?
+  city           String?
+  province       String?
+  postalCode     String?
+  country        String            @default("Philippines")
+  notes          String?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  createdBy      User?             @relation("SupplierCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy      User?             @relation("SupplierUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  contacts       SupplierContact[]
+  purchaseOrders PurchaseOrder[]
+
+  @@index([status])
+  @@index([name])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model SupplierContact {
+  id         String   @id @default(cuid())
+  supplierId String
+  fullName   String
+  position   String?
+  email      String?
+  phone      String?
+  isPrimary  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([supplierId, isPrimary])
+  @@index([supplierId, isActive])
+}
+
+model PurchaseOrder {
+  id                   String              @id @default(cuid())
+  poNumber             String              @unique
+  supplierId           String
+  status               PurchaseOrderStatus @default(DRAFT)
+  orderedAt            DateTime?
+  expectedDeliveryDate DateTime?
+  receivedAt           DateTime?
+  cancelledAt          DateTime?
+  notes                String?
+  createdById          String?
+  updatedById          String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  supplier  Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy User?    @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?    @relation("PurchaseOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([supplierId])
+  @@index([status])
+  @@index([expectedDeliveryDate])
+  @@index([orderedAt])
+  @@index([receivedAt])
+  @@index([createdById])
+  @@index([updatedById])
+}
+```
+
+The existing `User` model was extended with back-relations for supplier and purchase-order audit fields.
+
+## Rationale
+
+`Supplier` is the core business entity. It stores source data only: supplier identity, stable `supplierCode`, status, contact channels, address, notes, and audit pointers. The `supplierCode` is unique because supplier names can repeat or change in the real world.
+
+`SupplierContact` supports multiple contacts per supplier. The `isPrimary` flag gives the frontend a clear primary contact pattern without creating a circular `Supplier.primaryContactId` relation. Contacts cascade when a supplier is deleted because they do not have meaning without the supplier.
+
+`PurchaseOrder` is included because the Suppliers dashboard needs real delayed purchase-order counts and average lead-time metrics. The model intentionally stores only order dates and statuses for now. Purchase-order line items can be added later when `Product` exists.
+
+`SupplierStatus` and `PurchaseOrderStatus` prevent free-text status drift and make dashboard filters predictable.
+
+## Relations And Delete Rules
+
+- `Supplier.createdBy` and `Supplier.updatedBy` use `SetNull` so supplier history survives if a user account is removed.
+- `PurchaseOrder.createdBy` and `PurchaseOrder.updatedBy` also use `SetNull` for the same audit-safety reason.
+- `SupplierContact.supplier` uses `Cascade` because contacts are child records of the supplier.
+- `PurchaseOrder.supplier` uses `Restrict` because purchase orders are historical business records and should block supplier deletion.
+
+The nullable `createdById` and `updatedById` fields are intentional. They allow imported seed data, system-created records, and legacy records to exist before full admin permissions are implemented.
+
+## Indexes And Constraints
+
+- `Supplier.supplierCode` is unique and should be generated or normalized by the backend service.
+- `PurchaseOrder.poNumber` is unique and should be generated by the backend service.
+- `Supplier.status` supports status dashboard counts and filtering.
+- `Supplier.name` supports supplier search.
+- `PurchaseOrder.status`, `expectedDeliveryDate`, `orderedAt`, and `receivedAt` support delayed-PO and lead-time queries.
+- Audit foreign keys are indexed for future reporting.
+
+Prisma does not support PostgreSQL partial unique indexes directly in the schema. To enforce only one primary contact per supplier at the database level, add this SQL manually inside the migration generated for this schema:
+
+```sql
+CREATE UNIQUE INDEX "SupplierContact_one_primary_per_supplier"
+ON "SupplierContact"("supplierId")
+WHERE "isPrimary" = true;
+```
+
+The application should also enforce this by unsetting the old primary contact before setting a new one.
+
+## Dashboard Values To Compute
+
+Do not store these as columns yet:
+
+- Supplier count: compute with `supplier.count`, usually excluding `ARCHIVED`.
+- Delayed purchase orders: count purchase orders where `status` is `ORDERED` or `PARTIALLY_RECEIVED`, `expectedDeliveryDate` is before now, and `receivedAt` is null.
+- Average lead time: compute from received purchase orders using `receivedAt - orderedAt`.
+- Supplier status breakdown: group suppliers by `status`.
+- Reliability score: compute later from received, delayed, cancelled, and total orders. Cache only if reports become slow with large data.
+
+Caching is not needed at this stage because the capstone dataset should be small and these metrics can be computed directly from indexed source data.
+
+## Tradeoffs
+
+The safer choice is the purchase-order-based design, which is what was implemented. A supplier-only model would be simpler for CRUD, but it cannot honestly support delayed purchase-order counts or average lead time from real data.
+
+The schema does not include purchase-order line items yet. That avoids a premature dependency on future `Product` and `Inventory` models. When product management is implemented, add `PurchaseOrderItem` with optional historical fields such as ordered quantity, received quantity, and unit cost.
+
+The primary contact rule is represented with `isPrimary` instead of a circular `Supplier.primaryContactId` relation. This keeps the model clean and avoids a dependency loop, with the tradeoff that a partial unique index or service-level transaction is needed to enforce one primary contact per supplier.
+

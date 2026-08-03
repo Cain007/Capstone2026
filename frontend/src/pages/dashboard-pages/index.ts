@@ -1,0 +1,10 @@
+export { default as CategoriesPage } from './categories';
+export { default as DashboardPage } from './dashboard';
+export { default as ForecastingPage } from './forecasting';
+export { default as InventoryPage } from './inventory';
+export { default as ProductsPage } from './products';
+export { default as ReportsPage } from './reports';
+export { default as SalesHistoryPage } from './sales-history';
+export { default as SettingsPage } from './settings';
+export { default as SuppliersPage } from './suppliers';
+export { default as UserManagementPage } from './user-management';

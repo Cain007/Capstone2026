@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import SmokeStreams from '../components/SmokeStreams';
 import githubIcon from '../assets/github.png';
 import '../styles/login.css';
 import type { AuthResponse } from '../types/auth';
@@ -73,6 +74,8 @@ export default function Login({ onAuthenticated }: LoginProps) {
 
   return (
     <div className="login-container">
+      <SmokeStreams />
+
       <div className="aurora-bg">
         <div className="aurora-glow aurora-1"></div>
         <div className="aurora-glow aurora-2"></div>
@@ -228,3 +231,4 @@ export default function Login({ onAuthenticated }: LoginProps) {
     </div>
   );
 }
+
