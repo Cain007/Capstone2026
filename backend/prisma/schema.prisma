@@ -11,8 +11,16 @@ model User {
   id                    String          @id @default(cuid())
   email                 String          @unique
   passwordHash          String
+  roleId                String
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
+  role                  Role            @relation("UserAssignedRole", fields: [roleId], references: [id], onDelete: Restrict)
+  loginHistory          LoginHistory[]  @relation("LoginHistoryUser")
+  auditEvents           AuditEvent[]    @relation("AuditEventActor")
+  createdRoles          Role[]          @relation("RoleCreatedBy")
+  updatedRoles          Role[]          @relation("RoleUpdatedBy")
+  cashierSales          Sale[]          @relation("SaleCashier")
+  inventoryMovements    InventoryMovement[] @relation("InventoryMovementPerformedBy")
   createdCategories     Category[]      @relation("CategoryCreatedBy")
   updatedCategories     Category[]      @relation("CategoryUpdatedBy")
   createdProducts       Product[]       @relation("ProductCreatedBy")
@@ -21,6 +29,14 @@ model User {
   updatedSuppliers      Supplier[]      @relation("SupplierUpdatedBy")
   createdPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
   updatedPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderUpdatedBy")
+  generatedForecastRuns ForecastRun[]   @relation("ForecastRunGeneratedBy")
+
+  @@index([roleId])
+}
+
+enum RoleStatus {
+  ACTIVE
+  ARCHIVED
 }
 
 enum CategoryStatus {
@@ -45,6 +61,82 @@ enum ProductUnitType {
   MILLILITER
 }
 
+enum AuthEventType {
+  LOGIN
+  LOGOUT
+  PASSWORD_CHANGE
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_COMPLETE
+  SESSION_EXPIRED
+}
+
+enum AuthEventStatus {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
+enum AuthFailureReason {
+  INVALID_CREDENTIALS
+  ACCOUNT_NOT_FOUND
+  ACCOUNT_DISABLED
+  TOKEN_EXPIRED
+  TOKEN_INVALID
+  RATE_LIMITED
+  PASSWORD_POLICY
+  USER_NOT_AUTHENTICATED
+  UNKNOWN
+}
+
+enum AuditEventType {
+  DATA_CHANGE
+  ADMIN_ACTION
+  ACCESS_CONTROL
+  SECURITY
+  REPORTING
+  SYSTEM
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  ARCHIVE
+  RESTORE
+  ACTIVATE
+  DEACTIVATE
+  ASSIGN_ROLE
+  REVOKE_ROLE
+  GRANT_PERMISSION
+  REVOKE_PERMISSION
+  EXPORT
+  IMPORT
+  VIEW
+  APPROVE
+  CANCEL
+}
+
+enum AuditEntityType {
+  USER
+  ROLE
+  PERMISSION
+  PRODUCT
+  CATEGORY
+  SUPPLIER
+  PURCHASE_ORDER
+  INVENTORY
+  SALE
+  FORECAST_RUN
+  REPORT
+  SYSTEM
+}
+
+enum AuditEventStatus {
+  SUCCESS
+  FAILURE
+  DENIED
+}
+
 enum SupplierStatus {
   ACTIVE
   ON_HOLD
@@ -60,6 +152,137 @@ enum PurchaseOrderStatus {
   CANCELLED
 }
 
+enum ForecastScope {
+  GLOBAL
+  CATEGORY
+  PRODUCT
+}
+
+enum ForecastMethod {
+  MOVING_AVERAGE
+  EXPONENTIAL_SMOOTHING
+  LINEAR_REGRESSION
+}
+
+enum ForecastGranularity {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ForecastRunStatus {
+  DRAFT
+  APPROVED
+  PUBLISHED
+}
+
+enum SaleStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+enum SalePaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+}
+
+enum SalePaymentMethod {
+  CASH
+  CARD
+  E_WALLET
+  BANK_TRANSFER
+  OTHER
+}
+
+enum InventoryMovementType {
+  PURCHASE_RECEIPT
+  SALE_DEDUCTION
+  STOCK_ADJUSTMENT
+  RETURN_IN
+  RETURN_OUT
+  DAMAGE
+  LOSS
+  INITIAL_STOCK
+}
+
+model Role {
+  id          String     @id @default(cuid())
+  name        String     @unique
+  description String?
+  status      RoleStatus @default(ACTIVE)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  users     User[] @relation("UserAssignedRole")
+  createdBy User?  @relation("RoleCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?  @relation("RoleUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([createdById])
+  @@index([updatedById])
+}
+
+model LoginHistory {
+  id                  String             @id @default(cuid())
+  eventType           AuthEventType
+  status              AuthEventStatus
+  failureReason       AuthFailureReason?
+  userId              String?
+  actorUserIdSnapshot String?
+  actorEmailSnapshot  String?
+  attemptedEmail      String?
+  ipAddress           String?            @db.VarChar(45)
+  userAgent           String?            @db.VarChar(512)
+  metadata            Json?
+  createdAt           DateTime           @default(now())
+
+  user User? @relation("LoginHistoryUser", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([actorUserIdSnapshot, createdAt])
+  @@index([attemptedEmail, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([eventType, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
+model AuditEvent {
+  id                  String           @id @default(cuid())
+  eventType           AuditEventType
+  action              AuditAction
+  entityType          AuditEntityType
+  entityId            String?
+  entityLabel         String?
+  status              AuditEventStatus @default(SUCCESS)
+  actorUserId         String?
+  actorUserIdSnapshot String?
+  actorEmailSnapshot  String?
+  ipAddress           String?          @db.VarChar(45)
+  userAgent           String?          @db.VarChar(512)
+  requestId           String?
+  before              Json?
+  after               Json?
+  metadata            Json?
+  createdAt           DateTime         @default(now())
+
+  actor User? @relation("AuditEventActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@index([actorUserIdSnapshot, createdAt])
+  @@index([entityType, entityId])
+  @@index([eventType, createdAt])
+  @@index([action, createdAt])
+  @@index([status, createdAt])
+  @@index([requestId])
+  @@index([createdAt])
+}
+
 model Category {
   id          String         @id @default(cuid())
   name        String
@@ -73,11 +296,12 @@ model Category {
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 
-  parent    Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
-  children  Category[] @relation("CategoryHierarchy")
-  products  Product[]
-  createdBy User?      @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy User?      @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  parent       Category?     @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children     Category[]    @relation("CategoryHierarchy")
+  products     Product[]
+  forecastRuns ForecastRun[] @relation("CategoryForecastRuns")
+  createdBy    User?         @relation("CategoryCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?         @relation("CategoryUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([name])
@@ -103,9 +327,13 @@ model Product {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  category  Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  createdBy User?    @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy User?    @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy    User?         @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy    User?         @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  forecastRuns ForecastRun[] @relation("ProductForecastRuns")
+  saleItems    SaleItem[]    @relation("ProductSaleItems")
+  inventoryMovements InventoryMovement[] @relation("ProductInventoryMovements")
+  stockLevel StockLevel? @relation("ProductStockLevel")
 
   @@index([categoryId])
   @@index([status])
@@ -113,6 +341,154 @@ model Product {
   @@index([name])
   @@index([createdById])
   @@index([updatedById])
+}
+
+model ForecastRun {
+  id               String              @id @default(cuid())
+  scope            ForecastScope
+  targetKey        String              @db.VarChar(128)
+  productId        String?
+  categoryId       String?
+  method           ForecastMethod
+  granularity      ForecastGranularity
+  sourceStartDate  DateTime            @db.Date
+  sourceEndDate    DateTime            @db.Date
+  horizonStartDate DateTime            @db.Date
+  horizonEndDate   DateTime            @db.Date
+  horizonPeriods   Int
+  parameters       Json?
+  status           ForecastRunStatus   @default(DRAFT)
+  version          Int                 @default(1)
+  modelVersion     String?             @db.VarChar(64)
+  generatedById    String?
+  generatedAt      DateTime            @default(now())
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  product     Product?        @relation("ProductForecastRuns", fields: [productId], references: [id], onDelete: Restrict)
+  category    Category?       @relation("CategoryForecastRuns", fields: [categoryId], references: [id], onDelete: Restrict)
+  generatedBy User?           @relation("ForecastRunGeneratedBy", fields: [generatedById], references: [id], onDelete: SetNull)
+  points      ForecastPoint[]
+
+  @@unique([scope, targetKey, method, granularity, sourceStartDate, sourceEndDate, horizonStartDate, horizonEndDate, horizonPeriods, version])
+  @@index([scope, targetKey, method, granularity, horizonStartDate, horizonEndDate, version])
+  @@index([scope, productId, generatedAt])
+  @@index([scope, categoryId, generatedAt])
+  @@index([method, generatedAt])
+  @@index([status, generatedAt])
+  @@index([generatedById, generatedAt])
+  @@index([generatedAt])
+}
+
+model ForecastPoint {
+  id                String   @id @default(cuid())
+  forecastRunId     String
+  periodStart       DateTime @db.Date
+  periodEnd         DateTime @db.Date
+  predictedQuantity Decimal  @db.Decimal(14, 4)
+  confidenceLower   Decimal? @db.Decimal(14, 4)
+  confidenceUpper   Decimal? @db.Decimal(14, 4)
+  createdAt         DateTime @default(now())
+
+  forecastRun ForecastRun @relation(fields: [forecastRunId], references: [id], onDelete: Cascade)
+
+  @@unique([forecastRunId, periodStart])
+  @@index([forecastRunId, periodStart])
+  @@index([periodStart, periodEnd])
+}
+
+model Sale {
+  id                    String            @id @default(cuid())
+  saleNumber            String            @unique
+  soldAt                DateTime          @default(now())
+  status                SaleStatus        @default(DRAFT)
+  cashierId             String?
+  cashierUserIdSnapshot String
+  cashierEmailSnapshot  String
+  customerReference     String?
+  customerNameSnapshot  String?
+  paymentStatus         SalePaymentStatus @default(PENDING)
+  paymentMethod         SalePaymentMethod
+  subtotalCents         Int               @default(0)
+  discountCents         Int               @default(0)
+  taxCents              Int               @default(0)
+  grandTotalCents       Int               @default(0)
+  notes                 String?
+  completedAt           DateTime?
+  cancelledAt           DateTime?
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  cashier User?      @relation("SaleCashier", fields: [cashierId], references: [id], onDelete: SetNull)
+  items   SaleItem[]
+
+  @@index([soldAt])
+  @@index([cashierId, soldAt])
+  @@index([status, soldAt])
+  @@index([paymentStatus, soldAt])
+}
+
+model SaleItem {
+  id                  String   @id @default(cuid())
+  saleId              String
+  productId           String
+  lineNumber          Int
+  productNameSnapshot String
+  skuSnapshot         String
+  unitPriceCents      Int
+  quantity            Decimal  @db.Decimal(14, 4)
+  discountCents       Int      @default(0)
+  taxCents            Int      @default(0)
+  lineTotalCents      Int
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product Product @relation("ProductSaleItems", fields: [productId], references: [id], onDelete: Restrict)
+  inventoryMovements InventoryMovement[] @relation("SaleItemInventoryMovements")
+
+  @@unique([saleId, lineNumber])
+  @@index([saleId])
+  @@index([productId])
+  @@index([productId, createdAt])
+}
+
+model InventoryMovement {
+  id                  String                @id @default(cuid())
+  productId           String
+  quantityChange      Int
+  movementType        InventoryMovementType
+  unitCostCents       Int?
+  performedById       String?
+  saleItemId          String?
+  reversesMovementId  String?
+  note                String?
+  createdAt           DateTime              @default(now())
+
+  product           Product              @relation("ProductInventoryMovements", fields: [productId], references: [id], onDelete: Restrict)
+  performedBy       User?                @relation("InventoryMovementPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
+  saleItem          SaleItem?            @relation("SaleItemInventoryMovements", fields: [saleItemId], references: [id], onDelete: Restrict)
+  reversesMovement  InventoryMovement?   @relation("InventoryMovementReversal", fields: [reversesMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reversedByMovements InventoryMovement[] @relation("InventoryMovementReversal")
+
+  @@index([productId])
+  @@index([movementType])
+  @@index([createdAt])
+  @@index([performedById])
+  @@index([saleItemId])
+  @@index([reversesMovementId])
+}
+
+model StockLevel {
+  id              String   @id @default(cuid())
+  productId       String   @unique
+  currentQuantity Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  product Product @relation("ProductStockLevel", fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([currentQuantity])
 }
 
 model Supplier {

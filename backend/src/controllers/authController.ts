@@ -6,6 +6,7 @@ import { prisma } from '../lib/prisma.js';
 
 const MIN_PASSWORD_LENGTH = 8;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEFAULT_SIGNUP_ROLE_NAME = process.env.DEFAULT_SIGNUP_ROLE_NAME || 'Staff';
 
 function publicUser(user: { id: string; email: string }) {
   return { id: user.id, email: user.email };
@@ -36,6 +37,20 @@ function readCredentials(request: Request) {
   return { email, password, confirmPassword };
 }
 
+async function getDefaultSignupRoleId() {
+  const role = await prisma.role.upsert({
+    where: { name: DEFAULT_SIGNUP_ROLE_NAME },
+    update: {},
+    create: {
+      name: DEFAULT_SIGNUP_ROLE_NAME,
+      description: 'Default role assigned to newly registered users.',
+    },
+    select: { id: true },
+  });
+
+  return role.id;
+}
+
 export async function signup(request: Request, response: Response) {
   const { email, password, confirmPassword } = readCredentials(request);
 
@@ -58,8 +73,9 @@ export async function signup(request: Request, response: Response) {
 
   try {
     const passwordHash = await bcrypt.hash(password, 12);
+    const roleId = await getDefaultSignupRoleId();
     const user = await prisma.user.create({
-      data: { email, passwordHash },
+      data: { email, passwordHash, roleId },
       select: { id: true, email: true },
     });
 

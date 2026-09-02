@@ -22,6 +22,7 @@ type Row = {
   title: string;
   detail: string;
   status: string;
+  id?: string;
 };
 
 type DashboardPageShellProps = {
@@ -35,6 +36,9 @@ type DashboardPageShellProps = {
   userEmail?: string;
   onLogout?: () => void;
   onNavigate?: (page: DashboardPageName) => void;
+  onAction?: () => void;
+  renderRowActions?: (row: Row) => React.ReactNode;
+  children?: React.ReactNode;
 };
 
 const navigationItems: DashboardPageName[] = [
@@ -74,6 +78,9 @@ export function DashboardPageShell({
   userEmail,
   onLogout,
   onNavigate,
+  onAction,
+  renderRowActions,
+  children,
 }: DashboardPageShellProps) {
   return (
     <main className={`dashboard-page ${pageClassNames[activePage]}`}>
@@ -128,7 +135,7 @@ export function DashboardPageShell({
             <h1>{title}</h1>
             <p>{description}</p>
           </div>
-          <button type="button" className="dashboard-page-action">
+          <button type="button" className="dashboard-page-action" onClick={onAction}>
             {actionLabel}
           </button>
         </header>
@@ -154,19 +161,21 @@ export function DashboardPageShell({
 
           <div className="dashboard-page-table" role="table" aria-label={`${title} queue`}>
             {rows.map((row) => (
-              <div className="dashboard-page-table-row" role="row" key={row.title}>
+              <div className="dashboard-page-table-row" role="row" key={row.id ?? row.title}>
                 <div>
                   <strong>{row.title}</strong>
                   <p>{row.detail}</p>
                 </div>
-                <span>{row.status}</span>
+                <div className="dashboard-page-table-row-meta">
+                  <span>{row.status}</span>
+                  {renderRowActions ? <div className="dashboard-page-row-actions">{renderRowActions(row)}</div> : null}
+                </div>
               </div>
             ))}
           </div>
+          {children}
         </section>
       </section>
     </main>
   );
 }
-
-

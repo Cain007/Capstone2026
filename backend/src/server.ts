@@ -3,6 +3,10 @@ import cors from 'cors';
 import express from 'express';
 import { prisma } from './lib/prisma.js';
 import { authRouter } from './routes/authRoutes.js';
+import { categoryRouter } from './routes/categoryRoutes.js';
+import { supplierRouter } from './routes/supplierRoutes.js';
+import { productRouter } from './routes/productRoutes.js';
+import { requireAuth } from './middleware/authMiddleware.js';
 
 const app = express();
 const port = Number(process.env.PORT) || 5000;
@@ -16,6 +20,9 @@ app.get('/api/health', (_request, response) => {
 });
 
 app.use('/api/auth', authRouter);
+app.use('/api/categories', requireAuth, categoryRouter);
+app.use('/api/suppliers', requireAuth, supplierRouter);
+app.use('/api/products', requireAuth, productRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ message: 'Route not found' });

@@ -1,9 +1,165 @@
-.dashboard-page--categories {
-	--page-bg: #f8faf4;
-	--page-border: #dfe8cf;
-	--page-accent: #7aa116;
-	--page-accent-rgb: 122, 161, 22;
-	--page-accent-soft: #f0f8dc;
+.dashboard-page--categories .categories-loading,
+.dashboard-page--categories .categories-error {
+  padding: 18px 0;
+  color: var(--page-muted);
 }
 
+.dashboard-page--categories .categories-error button {
+  margin-top: 10px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(var(--page-accent-rgb), 0.24);
+  border-radius: 999px;
+  background: var(--page-accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+}
 
+.dashboard-page-row-actions {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: 12px;
+}
+
+.dashboard-page-row-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(6, 19, 45, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--page-text);
+  font: inherit;
+  font-weight: 800;
+}
+
+.dashboard-page-row-button--danger {
+  border-color: rgba(220, 38, 38, 0.24);
+  color: #dc2626;
+}
+
+.dashboard-page-table-row-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-page-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 19, 45, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  z-index: 50;
+}
+
+.dashboard-page-modal {
+  width: min(520px, 100%);
+  border: 1px solid var(--page-border);
+  border-radius: 16px;
+  background: var(--page-card);
+  box-shadow: 0 30px 60px rgba(6, 19, 45, 0.18);
+  padding: 22px;
+}
+
+.categories-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.categories-modal-head h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.categories-modal-close {
+  min-height: 36px;
+  min-width: 36px;
+  border: 1px solid rgba(6, 19, 45, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--page-text);
+  font: inherit;
+  font-weight: 800;
+}
+
+.categories-form-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.categories-form-field label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--page-muted);
+}
+
+.categories-form-field input,
+.categories-form-field textarea,
+.categories-form-field select {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--page-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--page-text);
+  font: inherit;
+}
+
+.categories-form-field textarea {
+  resize: vertical;
+}
+
+.categories-form-error {
+  margin: 0 0 14px;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.categories-delete-text {
+  margin: 0 0 18px;
+  line-height: 1.6;
+  color: var(--page-muted);
+}
+
+.categories-delete-text strong {
+  color: var(--page-text);
+}
+
+.categories-modal-actions {
+  display: inline-flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.categories-button-primary {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(var(--page-accent-rgb), 0.24);
+  border-radius: 999px;
+  background: var(--page-accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+}
+
+.categories-button-primary--danger {
+  background: #dc2626;
+  border-color: rgba(220, 38, 38, 0.24);
+}
+
+.categories-button-secondary {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(6, 19, 45, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--page-text);
+  font: inherit;
+  font-weight: 800;
+}

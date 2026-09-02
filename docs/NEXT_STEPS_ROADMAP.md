@@ -35,7 +35,7 @@ The workspace is aligned with the document's **technology direction and early st
 - Dashboard pages for the expected modules exist.
 - PostgreSQL and Prisma are configured.
 
-The main gap is that the dashboard pages still use mock data, and the backend does not yet contain the business models, CRUD routes, inventory workflows, sales workflows, forecasting logic, or role-based permissions described in the capstone document.
+The main gap is that the dashboard pages still use mock data, and the backend schema work still needs to be followed by finalized migrations, CRUD routes, inventory workflows, sales workflows, forecasting logic, and role-based permissions in the actual API.
 
 ## Documentation improvements needed
 
@@ -131,7 +131,7 @@ After the core features are in place, add:
 ## Suggested implementation order
 
 1. Get both apps running locally without errors.
-2. Update the Prisma schema for roles, users, products, categories, suppliers, inventory transactions, sales, sale items, and forecasts.
+2. Finalize and apply Prisma migrations for the designed business models.
 3. Add backend routes and controllers for Products and Categories.
 4. Connect the Products and Categories pages to real data.
 5. Add Suppliers and Inventory tracking.

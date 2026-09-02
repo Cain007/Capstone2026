@@ -1,9 +1,204 @@
 .dashboard-page--suppliers {
-	--page-bg: #f7faf8;
-	--page-border: #d5e6da;
-	--page-accent: #278052;
-	--page-accent-rgb: 39, 128, 82;
-	--page-accent-soft: #e6f6ed;
+  --page-bg: #f7faf8;
+  --page-border: #d5e6da;
+  --page-accent: #278052;
+  --page-accent-rgb: 39, 128, 82;
+  --page-accent-soft: #e6f6ed;
 }
 
+.dashboard-page--suppliers .suppliers-loading,
+.dashboard-page--suppliers .suppliers-error {
+  padding: 18px 0;
+  color: var(--page-muted);
+}
 
+.dashboard-page--suppliers .suppliers-error button {
+  margin-top: 10px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid rgba(var(--page-accent-rgb), 0.24);
+  border-radius: 999px;
+  background: var(--page-accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+}
+
+.dashboard-page--suppliers .dashboard-page-row-actions {
+  display: inline-flex;
+  gap: 10px;
+  margin-left: 12px;
+}
+
+.dashboard-page--suppliers .dashboard-page-row-button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(6, 19, 45, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--page-text);
+  font: inherit;
+  font-weight: 800;
+}
+
+.dashboard-page--suppliers .dashboard-page-row-button--danger {
+  border-color: rgba(220, 38, 38, 0.24);
+  color: #dc2626;
+}
+
+.dashboard-page--suppliers .dashboard-page-table-row-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.suppliers-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 19, 45, 0.35);
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  z-index: 50;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.suppliers-modal {
+  width: min(560px, 100%);
+  max-height: calc(100svh - 44px);
+  border: 1px solid var(--page-border);
+  border-radius: 16px;
+  background: var(--page-card);
+  box-shadow: 0 30px 60px rgba(6, 19, 45, 0.18);
+  padding: 22px;
+  overflow-y: auto;
+}
+
+.suppliers-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.suppliers-modal-head h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.suppliers-modal-close {
+  min-height: 36px;
+  min-width: 36px;
+  border: 1px solid rgba(6, 19, 45, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--page-text);
+  font: inherit;
+  font-weight: 800;
+}
+
+.suppliers-form-field {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.suppliers-form-field label {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--page-muted);
+}
+
+.suppliers-form-field input,
+.suppliers-form-field textarea,
+.suppliers-form-field select {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--page-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--page-text);
+  font: inherit;
+}
+
+.suppliers-form-field textarea {
+  resize: vertical;
+}
+
+.suppliers-form-error {
+  margin: 0 0 14px;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.suppliers-delete-text {
+  margin: 0 0 18px;
+  line-height: 1.6;
+  color: var(--page-muted);
+}
+
+.suppliers-delete-text strong {
+  color: var(--page-text);
+}
+
+.suppliers-modal-actions {
+  display: inline-flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.suppliers-button-primary {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(var(--page-accent-rgb), 0.24);
+  border-radius: 999px;
+  background: var(--page-accent);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 800;
+}
+
+.suppliers-button-primary--danger {
+  background: #dc2626;
+  border-color: rgba(220, 38, 38, 0.24);
+}
+
+.suppliers-button-secondary {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(6, 19, 45, 0.12);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--page-text);
+  font: inherit;
+  font-weight: 800;
+}
+
+.suppliers-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 720px) {
+  .suppliers-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .suppliers-modal {
+    padding: 18px;
+    max-height: calc(100svh - 24px);
+  }
+
+  .suppliers-modal-actions {
+    width: 100%;
+    display: grid;
+  }
+
+  .suppliers-button-primary,
+  .suppliers-button-secondary {
+    width: 100%;
+  }
+}
