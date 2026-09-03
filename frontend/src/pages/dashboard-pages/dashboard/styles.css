@@ -1,9 +1,194 @@
 .dashboard-page--dashboard {
-	--page-bg: #f7faf9;
-	--page-border: #dfe6e5;
-	--page-accent: #16c79a;
-	--page-accent-rgb: 22, 199, 154;
-	--page-accent-soft: #e7fbf4;
+  --page-bg: var(--color-bg);
+  --page-border: var(--color-border);
+  --page-accent: var(--color-primary);
+  --page-accent-rgb: 15, 118, 110;
+  --page-accent-soft: var(--color-primary-subtle);
 }
 
+.real-dashboard {
+  display: grid;
+  gap: var(--space-4);
+}
 
+.real-dashboard-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.real-dashboard-kpi {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.real-dashboard-kpi p,
+.real-dashboard-kpi span,
+.real-dashboard-kicker,
+.real-dashboard-section-head h2,
+.real-dashboard-activity-item p,
+.real-dashboard-attention-list p,
+.real-dashboard-quick-nav h2 {
+  margin: 0;
+}
+
+.real-dashboard-kpi p,
+.real-dashboard-kicker {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.real-dashboard-kpi strong {
+  color: var(--color-text);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.real-dashboard-kpi span,
+.real-dashboard-section-head span,
+.real-dashboard-activity-item p,
+.real-dashboard-attention-list p {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: var(--line-body);
+}
+
+.real-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.8fr);
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.real-dashboard-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+
+.real-dashboard-section-head h2,
+.real-dashboard-quick-nav h2 {
+  margin-top: var(--space-1);
+  color: var(--color-text);
+  font-size: var(--text-section-title);
+  font-weight: 700;
+  line-height: var(--line-tight);
+}
+
+.real-dashboard-section-head span {
+  white-space: nowrap;
+}
+
+.real-dashboard-activity-list,
+.real-dashboard-attention-list {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.real-dashboard-activity-item,
+.real-dashboard-attention-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.real-dashboard-activity-item:first-child,
+.real-dashboard-attention-list li:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.real-dashboard-activity-item:last-child,
+.real-dashboard-attention-list li:last-child {
+  padding-bottom: 0;
+}
+
+.real-dashboard-activity-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+}
+
+.real-dashboard-activity-title strong,
+.real-dashboard-attention-list strong {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: var(--line-tight);
+}
+
+.real-dashboard-quick-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.real-dashboard-quick-nav-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.real-dashboard-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 42px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.real-dashboard-retry {
+  display: flex;
+  justify-content: flex-start;
+}
+
+@media (max-width: 1100px) {
+  .real-dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .real-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .real-dashboard-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .real-dashboard-section-head,
+  .real-dashboard-activity-item,
+  .real-dashboard-attention-list li,
+  .real-dashboard-quick-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .real-dashboard-activity-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .real-dashboard-quick-nav-actions,
+  .real-dashboard-quick-nav-actions .ui-button {
+    width: 100%;
+  }
+}

@@ -4,10 +4,7 @@
   display: grid;
   place-items: center;
   box-sizing: border-box;
-  background: #111318;
-  color: #f3f4f6;
-}
-
-.session-loading {
-  font-size: 15px;
+  background: var(--color-bg);
+  color: var(--color-text-secondary);
+  font-size: var(--text-body);
 }

@@ -1,6 +1,22 @@
-import { useEffect, useState } from 'react';
-import { DashboardPageShell, type DashboardPageName } from '../_shared/DashboardPageShell';
+import { useEffect, useMemo, useState } from 'react';
+import PageHeader from '../../../components/PageHeader';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  Input,
+  Modal,
+  Select,
+  Spinner,
+  Textarea,
+} from '../../../components/ui';
+import AppShell from '../../../layouts/AppShell';
 import type { Category } from '../../../types/category';
+import { statusBadgeVariant, statusLabel } from '../../../utils/status';
+import type { DashboardPageName } from '../_shared/DashboardPageShell';
 import './styles.css';
 
 type DashboardPageProps = {
@@ -13,17 +29,21 @@ type CategoryFormData = {
   name: string;
   description: string;
   status: string;
-  sortOrder: number;
 };
+
+type StatusFilter = 'ALL' | 'ACTIVE' | 'ARCHIVED';
 
 const EMPTY_FORM: CategoryFormData = {
   name: '',
   description: '',
   status: 'ACTIVE',
-  sortOrder: 0,
 };
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+});
 
 function getAuthToken(): string | null {
   return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
@@ -34,17 +54,40 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function formatDate(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Date unavailable';
+  }
+
+  return dateFormatter.format(date);
+}
+
+async function readMessage(response: Response, fallback: string) {
+  try {
+    const data = (await response.json()) as { message?: string };
+    return data.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function CategoriesPage({ userEmail, onLogout, onNavigate }: DashboardPageProps) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState<CategoryFormData>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Category | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   async function loadCategories() {
     setLoading(true);
@@ -54,12 +97,12 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
         headers: { ...authHeaders() },
       });
       if (!response.ok) {
-        throw new Error(`Failed to load categories (${response.status})`);
+        throw new Error('Unable to load categories.');
       }
-      const data = await response.json();
+      const data = (await response.json()) as { categories?: Category[] };
       setCategories(data.categories ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load categories');
+    } catch {
+      setError('Unable to load categories.');
     } finally {
       setLoading(false);
     }
@@ -69,10 +112,38 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
     void Promise.resolve().then(loadCategories);
   }, []);
 
+  const summary = useMemo(
+    () => ({
+      total: categories.length,
+      active: categories.filter((category) => category.status === 'ACTIVE').length,
+      archived: categories.filter((category) => category.status === 'ARCHIVED').length,
+    }),
+    [categories],
+  );
+
+  const filteredCategories = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    return categories.filter((category) => {
+      const matchesStatus =
+        statusFilter === 'ALL' || category.status === statusFilter;
+      const searchableText = [
+        category.name,
+        category.slug,
+        category.description ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return matchesStatus && (!query || searchableText.includes(query));
+    });
+  }, [categories, searchQuery, statusFilter]);
+
   function openCreateModal() {
     setEditingCategory(null);
     setFormData(EMPTY_FORM);
     setFormError(null);
+    setSuccessMessage(null);
     setModalOpen(true);
   }
 
@@ -82,9 +153,9 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
       name: category.name,
       description: category.description ?? '',
       status: category.status,
-      sortOrder: category.sortOrder,
     });
     setFormError(null);
+    setSuccessMessage(null);
     setModalOpen(true);
   }
 
@@ -96,17 +167,23 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
     setSubmitting(false);
   }
 
-  function updateForm(field: keyof CategoryFormData, value: string | number) {
+  function clearFilters() {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+  }
+
+  function updateForm(field: keyof CategoryFormData, value: string) {
+    setFormError(null);
     setFormData((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
     setFormError(null);
 
-    const name = typeof formData.name === 'string' ? formData.name.trim() : '';
+    const name = formData.name.trim();
     if (!name) {
-      setFormError('Name is required');
+      setFormError('Category name is required.');
       return;
     }
 
@@ -121,7 +198,7 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
         name,
         description: formData.description.trim() || null,
         status: formData.status,
-        sortOrder: formData.sortOrder,
+        sortOrder: editingCategory?.sortOrder ?? 0,
       };
 
       const url = editingCategory
@@ -135,20 +212,16 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
       });
 
       if (!response.ok) {
-        let message = `Request failed (${response.status})`;
-        try {
-          const data = await response.json();
-          if (data.message) message = data.message;
-        } catch {
-          // ignore parse error
-        }
-        throw new Error(message);
+        throw new Error(await readMessage(response, 'Unable to save category.'));
       }
 
       await loadCategories();
+      setSuccessMessage(
+        editingCategory ? 'Category updated.' : 'Category created.',
+      );
       closeModal();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unable to save category');
+      setFormError(err instanceof Error ? err.message : 'Unable to save category.');
     } finally {
       setSubmitting(false);
     }
@@ -157,6 +230,8 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
   async function handleDelete() {
     if (!deleteConfirm) return;
     setDeleting(true);
+    setDeleteError(null);
+    setSuccessMessage(null);
     try {
       const response = await fetch(`${API_URL}/api/categories/${deleteConfirm.id}`, {
         method: 'DELETE',
@@ -164,188 +239,263 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
       });
 
       if (!response.ok) {
-        let message = `Delete failed (${response.status})`;
-        try {
-          const data = await response.json();
-          if (data.message) message = data.message;
-        } catch {
-          // ignore parse error
-        }
-        throw new Error(message);
+        throw new Error(await readMessage(response, 'Unable to delete category.'));
       }
 
       await loadCategories();
+      setSuccessMessage('Category deleted.');
       setDeleteConfirm(null);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unable to delete category');
+      setDeleteError(
+        err instanceof Error ? err.message : 'Unable to delete category.',
+      );
     } finally {
       setDeleting(false);
     }
   }
 
-  const rows = categories.map((category) => ({
-    title: category.name,
-    detail: category.description || category.slug,
-    status: category.status,
-    id: category.id,
-  }));
-
-  const renderRowActions = (row: { id?: string }) => {
-    if (!row.id) return null;
-    const category = categories.find((c) => c.id === row.id);
-    if (!category) return null;
-    return (
-      <div className="dashboard-page-row-actions">
-        <button
-          type="button"
-          className="dashboard-page-row-button"
-          onClick={() => openEditModal(category)}
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          className="dashboard-page-row-button dashboard-page-row-button--danger"
-          onClick={() => setDeleteConfirm(category)}
-        >
-          Delete
-        </button>
-      </div>
-    );
-  };
+  const formTitle = editingCategory ? 'Edit Category' : 'Add Category';
 
   return (
-    <DashboardPageShell
+    <AppShell
       activePage="Categories"
-      eyebrow="Merchandising"
-      title="Categories"
-      description="Organize assortments and keep category rules clear for shoppers and staff."
       userEmail={userEmail}
       onLogout={onLogout}
       onNavigate={onNavigate}
-      actionLabel="New category"
-      onAction={openCreateModal}
-      metrics={[
-        { label: 'Categories', value: String(categories.length), helper: 'Live count' },
-        { label: 'Unassigned', value: '0', helper: 'Products need mapping' },
-        { label: 'Rule updates', value: '0', helper: 'Scheduled tonight' },
-      ]}
-      rows={rows}
-      renderRowActions={renderRowActions}
+      className="dashboard-page dashboard-page--categories"
     >
-      {loading && (
-        <div className="categories-loading">
-          <p>Loading categories...</p>
-        </div>
-      )}
-      {error && !loading && (
-        <div className="categories-error">
-          <p>{error}</p>
-          <button type="button" onClick={loadCategories}>Retry</button>
-        </div>
-      )}
+      <section className="categories-page" aria-label="Categories workspace">
+        <PageHeader
+          eyebrow="Catalog"
+          title="Categories"
+          description="Organize products into manageable catalog groups."
+          actionLabel="+ Add Category"
+          onAction={openCreateModal}
+        />
 
-      {modalOpen && (
-        <div className="categories-modal-backdrop" onClick={closeModal}>
-          <div className="categories-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="categories-modal-head">
-              <h3>{editingCategory ? 'Edit Category' : 'New Category'}</h3>
-              <button type="button" className="categories-modal-close" onClick={closeModal}>
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div className="categories-form-field">
-                <label htmlFor="category-name">Name</label>
-                <input
-                  id="category-name"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => updateForm('name', e.target.value)}
-                  placeholder="Category name"
-                />
-              </div>
-              <div className="categories-form-field">
-                <label htmlFor="category-description">Description</label>
-                <textarea
-                  id="category-description"
-                  value={formData.description}
-                  onChange={(e) => updateForm('description', e.target.value)}
-                  placeholder="Optional description"
-                  rows={3}
-                />
-              </div>
-              <div className="categories-form-field">
-                <label htmlFor="category-status">Status</label>
-                <select
-                  id="category-status"
-                  value={formData.status}
-                  onChange={(e) => updateForm('status', e.target.value)}
-                >
-                  <option value="ACTIVE">Active</option>
-                  <option value="ARCHIVED">Archived</option>
-                </select>
-              </div>
-              <div className="categories-form-field">
-                <label htmlFor="category-sortOrder">Sort Order</label>
-                <input
-                  id="category-sortOrder"
-                  type="number"
-                  value={formData.sortOrder}
-                  onChange={(e) => updateForm('sortOrder', Number(e.target.value))}
-                />
-              </div>
-              {formError && <p className="categories-form-error">{formError}</p>}
-              <div className="categories-modal-actions">
-                <button type="button" className="categories-button-secondary" onClick={closeModal} disabled={submitting}>
-                  Cancel
-                </button>
-                <button type="submit" className="categories-button-primary" disabled={submitting}>
-                  {submitting ? 'Saving...' : editingCategory ? 'Update' : 'Create'}
-                </button>
-              </div>
-            </form>
+        {successMessage ? (
+          <Alert variant="success" title="Success">
+            {successMessage}
+          </Alert>
+        ) : null}
+
+        <Card padding="compact" className="categories-summary" aria-label="Category summary">
+          <div>
+            <span>Total Categories</span>
+            <strong>{summary.total}</strong>
           </div>
-        </div>
-      )}
+          <div>
+            <span>Active</span>
+            <strong>{summary.active}</strong>
+          </div>
+          <div>
+            <span>Archived</span>
+            <strong>{summary.archived}</strong>
+          </div>
+        </Card>
 
-      {deleteConfirm && (
-        <div className="categories-modal-backdrop" onClick={() => setDeleteConfirm(null)}>
-          <div className="categories-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="categories-modal-head">
-              <h3>Delete Category</h3>
-              <button type="button" className="categories-modal-close" onClick={() => setDeleteConfirm(null)}>
-                ×
-              </button>
+        <Card padding="default" className="categories-resource-card">
+          <div className="categories-toolbar">
+            <Input
+              label="Search"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search name, slug, or description"
+            />
+            <Select
+              label="Status"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="ARCHIVED">Archived</option>
+            </Select>
+          </div>
+
+          {loading ? (
+            <div className="categories-loading" role="status" aria-live="polite">
+              <Spinner size="md" label="Loading categories" />
+              <span>Loading categories...</span>
             </div>
-            <p className="categories-delete-text">
-              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
-            </p>
-            {formError && <p className="categories-form-error">{formError}</p>}
-            <div className="categories-modal-actions">
-              <button
-                type="button"
-                className="categories-button-secondary"
-                onClick={() => {
-                  setDeleteConfirm(null);
-                  setFormError(null);
-                }}
-                disabled={deleting}
-              >
+          ) : null}
+
+          {error && !loading ? (
+            <div className="categories-state">
+              <Alert variant="error" title="Unable to load categories.">
+                Check your connection and try again.
+              </Alert>
+              <Button variant="secondary" onClick={loadCategories}>
+                Retry
+              </Button>
+            </div>
+          ) : null}
+
+          {!loading && !error && categories.length === 0 ? (
+            <EmptyState
+              title="No categories yet."
+              description="Create your first category to organize the product catalog."
+              action={
+                <Button variant="primary" onClick={openCreateModal}>
+                  + Add Category
+                </Button>
+              }
+            />
+          ) : null}
+
+          {!loading && !error && categories.length > 0 && filteredCategories.length === 0 ? (
+            <EmptyState
+              title="No categories match your search or filters."
+              description="Clear filters or adjust your search to see more categories."
+              action={
+                <Button variant="secondary" onClick={clearFilters}>
+                  Clear filters
+                </Button>
+              }
+            />
+          ) : null}
+
+          {!loading && !error && filteredCategories.length > 0 ? (
+            <div className="categories-table-wrap">
+              <table className="categories-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Category</th>
+                    <th scope="col">Description</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Updated</th>
+                    <th scope="col" className="categories-actions-heading">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCategories.map((category) => (
+                    <tr key={category.id}>
+                      <td>
+                        <div className="categories-category-cell">
+                          <strong>{category.name}</strong>
+                          <span>{category.slug}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          className="categories-description"
+                          title={category.description ?? 'No description'}
+                        >
+                          {category.description || 'No description'}
+                        </span>
+                      </td>
+                      <td>
+                        <Badge variant={statusBadgeVariant(category.status)}>
+                          {statusLabel(category.status)}
+                        </Badge>
+                      </td>
+                      <td>{formatDate(category.updatedAt)}</td>
+                      <td>
+                        <div className="categories-row-actions">
+                          <Button
+                            variant="ghost"
+                            aria-label={`Edit ${category.name}`}
+                            onClick={() => openEditModal(category)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            aria-label={`Delete ${category.name}`}
+                            onClick={() => {
+                              setDeleteConfirm(category);
+                              setDeleteError(null);
+                              setSuccessMessage(null);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </Card>
+
+        <Modal
+          open={modalOpen}
+          title={formTitle}
+          description="Category names and status are used throughout catalog management."
+          onClose={() => {
+            if (!submitting) closeModal();
+          }}
+          closeOnBackdrop={!submitting}
+          footer={
+            <>
+              <Button variant="secondary" onClick={closeModal} disabled={submitting}>
                 Cancel
-              </button>
-              <button
-                type="button"
-                className="categories-button-primary categories-button-primary--danger"
-                onClick={handleDelete}
-                disabled={deleting}
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                form="category-form"
+                loading={submitting}
               >
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </DashboardPageShell>
+                {editingCategory ? 'Update Category' : 'Save Category'}
+              </Button>
+            </>
+          }
+        >
+          <form id="category-form" className="categories-form" onSubmit={handleSubmit}>
+            <Input
+              label="Category Name"
+              value={formData.name}
+              onChange={(event) => updateForm('name', event.target.value)}
+              placeholder="Category name"
+              required
+              error={formError && !formData.name.trim() ? formError : undefined}
+            />
+            <Textarea
+              label="Description"
+              value={formData.description}
+              onChange={(event) => updateForm('description', event.target.value)}
+              placeholder="Optional description"
+              rows={3}
+            />
+            <Select
+              label="Status"
+              value={formData.status}
+              onChange={(event) => updateForm('status', event.target.value)}
+            >
+              <option value="ACTIVE">Active</option>
+              <option value="ARCHIVED">Archived</option>
+            </Select>
+            {formError && formData.name.trim() ? (
+              <Alert variant="error">{formError}</Alert>
+            ) : null}
+          </form>
+        </Modal>
+
+        <ConfirmDialog
+          open={Boolean(deleteConfirm)}
+          title="Delete category?"
+          description={
+            deleteError ||
+            `"${deleteConfirm?.name ?? 'This category'}" will be permanently removed.`
+          }
+          cancelLabel="Cancel"
+          confirmLabel="Delete Category"
+          pending={deleting}
+          danger
+          onCancel={() => {
+            if (deleting) return;
+            setDeleteConfirm(null);
+            setDeleteError(null);
+          }}
+          onConfirm={handleDelete}
+        />
+      </section>
+    </AppShell>
   );
 }

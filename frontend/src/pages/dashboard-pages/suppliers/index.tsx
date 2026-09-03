@@ -1,6 +1,22 @@
-import { useEffect, useState } from 'react';
-import { DashboardPageShell, type DashboardPageName } from '../_shared/DashboardPageShell';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import PageHeader from '../../../components/PageHeader';
+import {
+  Alert,
+  Badge,
+  Button,
+  Card,
+  ConfirmDialog,
+  EmptyState,
+  Input,
+  Modal,
+  Select,
+  Spinner,
+  Textarea,
+} from '../../../components/ui';
+import AppShell from '../../../layouts/AppShell';
 import type { Supplier } from '../../../types/supplier';
+import { statusBadgeVariant, statusLabel } from '../../../utils/status';
+import type { DashboardPageName } from '../_shared/DashboardPageShell';
 import './styles.css';
 
 type DashboardPageProps = {
@@ -9,10 +25,14 @@ type DashboardPageProps = {
   onNavigate?: (page: DashboardPageName) => void;
 };
 
+type SupplierStatus = 'ACTIVE' | 'ON_HOLD' | 'INACTIVE' | 'ARCHIVED';
+type StatusFilter = 'ALL' | SupplierStatus;
+type SortMode = 'UPDATED_DESC' | 'NAME_ASC' | 'CODE_ASC';
+
 type SupplierFormData = {
   name: string;
   legalName: string;
-  status: string;
+  status: SupplierStatus;
   email: string;
   phone: string;
   website: string;
@@ -41,7 +61,18 @@ const EMPTY_FORM: SupplierFormData = {
   notes: '',
 };
 
+const SUPPLIER_STATUSES: SupplierStatus[] = [
+  'ACTIVE',
+  'ON_HOLD',
+  'INACTIVE',
+  'ARCHIVED',
+];
+
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const dateFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+});
 
 function getAuthToken(): string | null {
   return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
@@ -52,17 +83,41 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+function formatDate(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Date unavailable';
+  }
+
+  return dateFormatter.format(date);
+}
+
+async function readMessage(response: Response, fallback: string) {
+  try {
+    const data = (await response.json()) as { message?: string };
+    return data.message || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function SuppliersPage({ userEmail, onLogout, onNavigate }: DashboardPageProps) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [sortMode, setSortMode] = useState<SortMode>('UPDATED_DESC');
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [formData, setFormData] = useState<SupplierFormData>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<Supplier | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   async function loadSuppliers() {
     setLoading(true);
@@ -72,12 +127,12 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
         headers: { ...authHeaders() },
       });
       if (!response.ok) {
-        throw new Error(`Failed to load suppliers (${response.status})`);
+        throw new Error('Unable to load suppliers.');
       }
-      const data = await response.json();
+      const data = (await response.json()) as { suppliers?: Supplier[] };
       setSuppliers(data.suppliers ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unable to load suppliers');
+    } catch {
+      setError('Unable to load suppliers.');
     } finally {
       setLoading(false);
     }
@@ -87,10 +142,67 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
     void Promise.resolve().then(loadSuppliers);
   }, []);
 
+  const summary = useMemo(
+    () => ({
+      total: suppliers.length,
+      active: suppliers.filter((supplier) => supplier.status === 'ACTIVE').length,
+      onHold: suppliers.filter((supplier) => supplier.status === 'ON_HOLD').length,
+      inactive: suppliers.filter(
+        (supplier) =>
+          supplier.status === 'INACTIVE' || supplier.status === 'ARCHIVED',
+      ).length,
+    }),
+    [suppliers],
+  );
+
+  const filteredSuppliers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+
+    const filtered = suppliers.filter((supplier) => {
+      const matchesStatus =
+        statusFilter === 'ALL' || supplier.status === statusFilter;
+      const searchableText = [
+        supplier.name,
+        supplier.supplierCode,
+        supplier.legalName ?? '',
+        supplier.email ?? '',
+        supplier.phone ?? '',
+        supplier.city ?? '',
+        supplier.province ?? '',
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      return matchesStatus && (!query || searchableText.includes(query));
+    });
+
+    return [...filtered].sort((firstSupplier, secondSupplier) => {
+      switch (sortMode) {
+        case 'NAME_ASC':
+          return firstSupplier.name.localeCompare(secondSupplier.name);
+        case 'CODE_ASC':
+          return firstSupplier.supplierCode.localeCompare(secondSupplier.supplierCode);
+        case 'UPDATED_DESC':
+        default:
+          return (
+            new Date(secondSupplier.updatedAt).getTime() -
+            new Date(firstSupplier.updatedAt).getTime()
+          );
+      }
+    });
+  }, [searchQuery, sortMode, statusFilter, suppliers]);
+
+  function clearFilters() {
+    setSearchQuery('');
+    setStatusFilter('ALL');
+    setSortMode('UPDATED_DESC');
+  }
+
   function openCreateModal() {
     setEditingSupplier(null);
     setFormData(EMPTY_FORM);
     setFormError(null);
+    setSuccessMessage(null);
     setModalOpen(true);
   }
 
@@ -99,7 +211,9 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
     setFormData({
       name: supplier.name,
       legalName: supplier.legalName ?? '',
-      status: supplier.status,
+      status: SUPPLIER_STATUSES.includes(supplier.status)
+        ? supplier.status
+        : 'ACTIVE',
       email: supplier.email ?? '',
       phone: supplier.phone ?? '',
       website: supplier.website ?? '',
@@ -112,6 +226,7 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
       notes: supplier.notes ?? '',
     });
     setFormError(null);
+    setSuccessMessage(null);
     setModalOpen(true);
   }
 
@@ -124,16 +239,17 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
   }
 
   function updateForm(field: keyof SupplierFormData, value: string) {
+    setFormError(null);
     setFormData((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
     setFormError(null);
 
-    const name = typeof formData.name === 'string' ? formData.name.trim() : '';
+    const name = formData.name.trim();
     if (!name) {
-      setFormError('Name is required');
+      setFormError('Supplier name is required.');
       return;
     }
 
@@ -171,20 +287,16 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
       });
 
       if (!response.ok) {
-        let message = `Request failed (${response.status})`;
-        try {
-          const data = await response.json();
-          if (data.message) message = data.message;
-        } catch {
-          // ignore parse error
-        }
-        throw new Error(message);
+        throw new Error(await readMessage(response, 'Unable to save supplier.'));
       }
 
       await loadSuppliers();
+      setSuccessMessage(
+        editingSupplier ? 'Supplier updated.' : 'Supplier created.',
+      );
       closeModal();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unable to save supplier');
+      setFormError(err instanceof Error ? err.message : 'Unable to save supplier.');
     } finally {
       setSubmitting(false);
     }
@@ -192,7 +304,10 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
 
   async function handleDelete() {
     if (!deleteConfirm) return;
+
     setDeleting(true);
+    setDeleteError(null);
+    setSuccessMessage(null);
     try {
       const response = await fetch(`${API_URL}/api/suppliers/${deleteConfirm.id}`, {
         method: 'DELETE',
@@ -200,287 +315,376 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
       });
 
       if (!response.ok) {
-        let message = `Delete failed (${response.status})`;
-        try {
-          const data = await response.json();
-          if (data.message) message = data.message;
-        } catch {
-          // ignore parse error
-        }
-        throw new Error(message);
+        throw new Error(await readMessage(response, 'Unable to delete supplier.'));
       }
 
       await loadSuppliers();
+      setSuccessMessage('Supplier deleted.');
       setDeleteConfirm(null);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unable to delete supplier');
+      setDeleteError(
+        err instanceof Error ? err.message : 'Unable to delete supplier.',
+      );
     } finally {
       setDeleting(false);
     }
   }
 
-  const rows = suppliers.map((supplier) => ({
-    title: supplier.name,
-    detail: `${supplier.supplierCode} · ${supplier.email ?? 'No email'} · ${supplier.phone ?? 'No phone'}`,
-    status: supplier.status,
-    id: supplier.id,
-  }));
-
-  const renderRowActions = (row: { id?: string }) => {
-    if (!row.id) return null;
-    const supplier = suppliers.find((s) => s.id === row.id);
-    if (!supplier) return null;
-    return (
-      <div className="dashboard-page-row-actions">
-        <button
-          type="button"
-          className="dashboard-page-row-button"
-          onClick={() => openEditModal(supplier)}
-        >
-          Edit
-        </button>
-        <button
-          type="button"
-          className="dashboard-page-row-button dashboard-page-row-button--danger"
-          onClick={() => setDeleteConfirm(supplier)}
-        >
-          Delete
-        </button>
-      </div>
-    );
-  };
+  const hasSuppliers = suppliers.length > 0;
+  const hasFilteredSuppliers = filteredSuppliers.length > 0;
+  const formTitle = editingSupplier ? 'Edit Supplier' : 'Add Supplier';
 
   return (
-    <DashboardPageShell
+    <AppShell
       activePage="Suppliers"
-      eyebrow="Vendor network"
-      title="Suppliers"
-      description="Monitor supplier reliability, purchase terms, and delivery exceptions."
       userEmail={userEmail}
       onLogout={onLogout}
       onNavigate={onNavigate}
-      actionLabel="Add supplier"
-      onAction={openCreateModal}
-      metrics={[
-        { label: 'Partners', value: String(suppliers.length), helper: 'Live count' },
-        { label: 'Delayed POs', value: '0', helper: '2 high priority' },
-        { label: 'Avg. lead time', value: '0d', helper: '-0.6 days improved' },
-      ]}
-      rows={rows}
-      renderRowActions={renderRowActions}
+      className="dashboard-page dashboard-page--suppliers"
     >
-      {loading && (
-        <div className="suppliers-loading">
-          <p>Loading suppliers...</p>
-        </div>
-      )}
-      {error && !loading && (
-        <div className="suppliers-error">
-          <p>{error}</p>
-          <button type="button" onClick={loadSuppliers}>Retry</button>
-        </div>
-      )}
+      <section className="suppliers-page" aria-label="Suppliers workspace">
+        <PageHeader
+          eyebrow="Catalog"
+          title="Suppliers"
+          description="Manage supplier information, contact details, and account status."
+          actionLabel="+ Add Supplier"
+          onAction={openCreateModal}
+        />
 
-      {modalOpen && (
-        <div className="suppliers-modal-backdrop" onClick={closeModal}>
-          <div className="suppliers-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="suppliers-modal-head">
-              <h3>{editingSupplier ? 'Edit Supplier' : 'New Supplier'}</h3>
-              <button type="button" className="suppliers-modal-close" onClick={closeModal}>
-                ×
-              </button>
+        {successMessage ? (
+          <Alert variant="success" title="Success">
+            {successMessage}
+          </Alert>
+        ) : null}
+
+        <Card padding="compact" className="suppliers-summary" aria-label="Supplier summary">
+          <div>
+            <span>Total Suppliers</span>
+            <strong>{summary.total}</strong>
+          </div>
+          <div>
+            <span>Active</span>
+            <strong>{summary.active}</strong>
+          </div>
+          <div>
+            <span>On Hold</span>
+            <strong>{summary.onHold}</strong>
+          </div>
+          <div>
+            <span>Inactive / Archived</span>
+            <strong>{summary.inactive}</strong>
+          </div>
+        </Card>
+
+        <Card padding="default" className="suppliers-resource-card">
+          <div className="suppliers-toolbar">
+            <Input
+              label="Search"
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search name, code, legal name, email, phone, or location"
+            />
+            <Select
+              label="Status"
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
+            >
+              <option value="ALL">All Statuses</option>
+              {SUPPLIER_STATUSES.map((status) => (
+                <option key={status} value={status}>
+                  {statusLabel(status)}
+                </option>
+              ))}
+            </Select>
+            <Select
+              label="Sort"
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as SortMode)}
+            >
+              <option value="UPDATED_DESC">Recently Updated</option>
+              <option value="NAME_ASC">Name A-Z</option>
+              <option value="CODE_ASC">Supplier Code</option>
+            </Select>
+          </div>
+
+          {loading ? (
+            <div className="suppliers-loading" role="status" aria-live="polite">
+              <Spinner size="md" label="Loading suppliers" />
+              <span>Loading suppliers...</span>
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="suppliers-form-field">
-                <label htmlFor="supplier-name">Name</label>
-                <input
-                  id="supplier-name"
-                  type="text"
+          ) : null}
+
+          {error && !loading ? (
+            <div className="suppliers-state">
+              <Alert variant="error" title="Unable to load suppliers.">
+                Check your connection and try again.
+              </Alert>
+              <Button variant="secondary" onClick={loadSuppliers}>
+                Retry
+              </Button>
+            </div>
+          ) : null}
+
+          {!loading && !error && !hasSuppliers ? (
+            <EmptyState
+              title="No suppliers yet."
+              description="Add your first supplier to begin managing vendor records."
+              action={
+                <Button variant="primary" onClick={openCreateModal}>
+                  + Add Supplier
+                </Button>
+              }
+            />
+          ) : null}
+
+          {!loading && !error && hasSuppliers && !hasFilteredSuppliers ? (
+            <EmptyState
+              title="No suppliers match your search or filters."
+              description="Clear filters or adjust your search to see more suppliers."
+              action={
+                <Button variant="secondary" onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              }
+            />
+          ) : null}
+
+          {!loading && !error && hasFilteredSuppliers ? (
+            <div className="suppliers-table-wrap">
+              <table className="suppliers-table">
+                <thead>
+                  <tr>
+                    <th scope="col">Supplier</th>
+                    <th scope="col">Code</th>
+                    <th scope="col">Contact</th>
+                    <th scope="col">Phone</th>
+                    <th scope="col">Status</th>
+                    <th scope="col">Updated</th>
+                    <th scope="col" className="suppliers-actions-heading">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSuppliers.map((supplier) => (
+                    <tr key={supplier.id}>
+                      <td>
+                        <div className="suppliers-supplier-cell">
+                          <strong>{supplier.name}</strong>
+                          <span>{supplier.legalName || 'No legal name'}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span className="suppliers-code">{supplier.supplierCode}</span>
+                      </td>
+                      <td>
+                        <div className="suppliers-contact-cell">
+                          <span>{supplier.email || 'No email'}</span>
+                          <span>{supplier.website || 'No website'}</span>
+                        </div>
+                      </td>
+                      <td>{supplier.phone || '-'}</td>
+                      <td>
+                        <Badge variant={statusBadgeVariant(supplier.status)}>
+                          {statusLabel(supplier.status)}
+                        </Badge>
+                      </td>
+                      <td>{formatDate(supplier.updatedAt)}</td>
+                      <td>
+                        <div className="suppliers-row-actions">
+                          <Button
+                            variant="ghost"
+                            aria-label={`Edit ${supplier.name}`}
+                            onClick={() => openEditModal(supplier)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            aria-label={`Delete ${supplier.name}`}
+                            onClick={() => {
+                              setDeleteConfirm(supplier);
+                              setDeleteError(null);
+                              setSuccessMessage(null);
+                            }}
+                          >
+                            Delete
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
+        </Card>
+
+        <Modal
+          open={modalOpen}
+          title={formTitle}
+          description="Supplier records store vendor identity, contact details, address, and account status."
+          onClose={() => {
+            if (!submitting) closeModal();
+          }}
+          closeOnBackdrop={!submitting}
+          width="760px"
+          footer={
+            <>
+              <Button variant="secondary" onClick={closeModal} disabled={submitting}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                type="submit"
+                form="supplier-form"
+                loading={submitting}
+              >
+                {editingSupplier ? 'Update Supplier' : 'Save Supplier'}
+              </Button>
+            </>
+          }
+        >
+          <form id="supplier-form" className="suppliers-form" onSubmit={handleSubmit}>
+            <fieldset className="suppliers-form-section">
+              <legend>General Information</legend>
+              <div className="suppliers-form-grid">
+                <Input
+                  label="Supplier Name"
                   value={formData.name}
-                  onChange={(e) => updateForm('name', e.target.value)}
+                  onChange={(event) => updateForm('name', event.target.value)}
                   placeholder="Supplier name"
+                  required
                 />
-              </div>
-              <div className="suppliers-form-field">
-                <label htmlFor="supplier-legalName">Legal Name</label>
-                <input
-                  id="supplier-legalName"
-                  type="text"
+                <Input
+                  label="Legal Name"
                   value={formData.legalName}
-                  onChange={(e) => updateForm('legalName', e.target.value)}
+                  onChange={(event) => updateForm('legalName', event.target.value)}
                   placeholder="Legal name"
                 />
-              </div>
-              <div className="suppliers-form-field">
-                <label htmlFor="supplier-status">Status</label>
-                <select
-                  id="supplier-status"
+                <Select
+                  label="Status"
                   value={formData.status}
-                  onChange={(e) => updateForm('status', e.target.value)}
+                  onChange={(event) =>
+                    updateForm('status', event.target.value as SupplierStatus)
+                  }
                 >
-                  <option value="ACTIVE">Active</option>
-                  <option value="ON_HOLD">On hold</option>
-                  <option value="INACTIVE">Inactive</option>
-                  <option value="ARCHIVED">Archived</option>
-                </select>
+                  {SUPPLIER_STATUSES.map((status) => (
+                    <option key={status} value={status}>
+                      {statusLabel(status)}
+                    </option>
+                  ))}
+                </Select>
               </div>
-              <div className="suppliers-form-row">
-                <div className="suppliers-form-field">
-                  <label htmlFor="supplier-email">Email</label>
-                  <input
-                    id="supplier-email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => updateForm('email', e.target.value)}
-                    placeholder="email@example.com"
-                  />
-                </div>
-                <div className="suppliers-form-field">
-                  <label htmlFor="supplier-phone">Phone</label>
-                  <input
-                    id="supplier-phone"
-                    type="tel"
-                    value={formData.phone}
-                    onChange={(e) => updateForm('phone', e.target.value)}
-                    placeholder="+63 900 000 0000"
-                  />
-                </div>
-              </div>
-              <div className="suppliers-form-field">
-                <label htmlFor="supplier-website">Website</label>
-                <input
-                  id="supplier-website"
+            </fieldset>
+
+            <fieldset className="suppliers-form-section">
+              <legend>Contact Information</legend>
+              <div className="suppliers-form-grid">
+                <Input
+                  label="Email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(event) => updateForm('email', event.target.value)}
+                  placeholder="email@example.com"
+                />
+                <Input
+                  label="Phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(event) => updateForm('phone', event.target.value)}
+                  placeholder="+63 900 000 0000"
+                />
+                <Input
+                  label="Website"
                   type="url"
                   value={formData.website}
-                  onChange={(e) => updateForm('website', e.target.value)}
+                  onChange={(event) => updateForm('website', event.target.value)}
                   placeholder="https://example.com"
+                  className="suppliers-form-span"
                 />
               </div>
-              <div className="suppliers-form-field">
-                <label htmlFor="supplier-addressLine1">Address Line 1</label>
-                <input
-                  id="supplier-addressLine1"
-                  type="text"
-                  value={formData.addressLine1}
-                  onChange={(e) => updateForm('addressLine1', e.target.value)}
-                  placeholder="Street address"
-                />
-              </div>
-              <div className="suppliers-form-field">
-                <label htmlFor="supplier-addressLine2">Address Line 2</label>
-                <input
-                  id="supplier-addressLine2"
-                  type="text"
-                  value={formData.addressLine2}
-                  onChange={(e) => updateForm('addressLine2', e.target.value)}
-                  placeholder="Apartment, suite, etc."
-                />
-              </div>
-              <div className="suppliers-form-row">
-                <div className="suppliers-form-field">
-                  <label htmlFor="supplier-city">City</label>
-                  <input
-                    id="supplier-city"
-                    type="text"
-                    value={formData.city}
-                    onChange={(e) => updateForm('city', e.target.value)}
-                    placeholder="City"
-                  />
-                </div>
-                <div className="suppliers-form-field">
-                  <label htmlFor="supplier-province">Province</label>
-                  <input
-                    id="supplier-province"
-                    type="text"
-                    value={formData.province}
-                    onChange={(e) => updateForm('province', e.target.value)}
-                    placeholder="Province"
-                  />
-                </div>
-              </div>
-              <div className="suppliers-form-row">
-                <div className="suppliers-form-field">
-                  <label htmlFor="supplier-postalCode">Postal Code</label>
-                  <input
-                    id="supplier-postalCode"
-                    type="text"
-                    value={formData.postalCode}
-                    onChange={(e) => updateForm('postalCode', e.target.value)}
-                    placeholder="Postal code"
-                  />
-                </div>
-                <div className="suppliers-form-field">
-                  <label htmlFor="supplier-country">Country</label>
-                  <input
-                    id="supplier-country"
-                    type="text"
-                    value={formData.country}
-                    onChange={(e) => updateForm('country', e.target.value)}
-                    placeholder="Country"
-                  />
-                </div>
-              </div>
-              <div className="suppliers-form-field">
-                <label htmlFor="supplier-notes">Notes</label>
-                <textarea
-                  id="supplier-notes"
-                  value={formData.notes}
-                  onChange={(e) => updateForm('notes', e.target.value)}
-                  placeholder="Optional notes"
-                  rows={3}
-                />
-              </div>
-              {formError && <p className="suppliers-form-error">{formError}</p>}
-              <div className="suppliers-modal-actions">
-                <button type="button" className="suppliers-button-secondary" onClick={closeModal} disabled={submitting}>
-                  Cancel
-                </button>
-                <button type="submit" className="suppliers-button-primary" disabled={submitting}>
-                  {submitting ? 'Saving...' : editingSupplier ? 'Update' : 'Create'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </fieldset>
 
-      {deleteConfirm && (
-        <div className="suppliers-modal-backdrop" onClick={() => setDeleteConfirm(null)}>
-          <div className="suppliers-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="suppliers-modal-head">
-              <h3>Delete Supplier</h3>
-              <button type="button" className="suppliers-modal-close" onClick={() => setDeleteConfirm(null)}>
-                ×
-              </button>
-            </div>
-            <p className="suppliers-delete-text">
-              Are you sure you want to delete <strong>{deleteConfirm.name}</strong>? This action cannot be undone.
-            </p>
-            {formError && <p className="suppliers-form-error">{formError}</p>}
-            <div className="suppliers-modal-actions">
-              <button
-                type="button"
-                className="suppliers-button-secondary"
-                onClick={() => {
-                  setDeleteConfirm(null);
-                  setFormError(null);
-                }}
-                disabled={deleting}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="suppliers-button-primary suppliers-button-primary--danger"
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </DashboardPageShell>
+            <fieldset className="suppliers-form-section">
+              <legend>Address</legend>
+              <div className="suppliers-form-grid">
+                <Input
+                  label="Address Line 1"
+                  value={formData.addressLine1}
+                  onChange={(event) => updateForm('addressLine1', event.target.value)}
+                  placeholder="Street address"
+                  className="suppliers-form-span"
+                />
+                <Input
+                  label="Address Line 2"
+                  value={formData.addressLine2}
+                  onChange={(event) => updateForm('addressLine2', event.target.value)}
+                  placeholder="Apartment, suite, etc."
+                  className="suppliers-form-span"
+                />
+                <Input
+                  label="City"
+                  value={formData.city}
+                  onChange={(event) => updateForm('city', event.target.value)}
+                  placeholder="City"
+                />
+                <Input
+                  label="Province"
+                  value={formData.province}
+                  onChange={(event) => updateForm('province', event.target.value)}
+                  placeholder="Province"
+                />
+                <Input
+                  label="Postal Code"
+                  value={formData.postalCode}
+                  onChange={(event) => updateForm('postalCode', event.target.value)}
+                  placeholder="Postal code"
+                />
+                <Input
+                  label="Country"
+                  value={formData.country}
+                  onChange={(event) => updateForm('country', event.target.value)}
+                  placeholder="Country"
+                />
+              </div>
+            </fieldset>
+
+            <fieldset className="suppliers-form-section">
+              <legend>Notes</legend>
+              <Textarea
+                label="Notes"
+                value={formData.notes}
+                onChange={(event) => updateForm('notes', event.target.value)}
+                placeholder="Optional notes"
+                rows={3}
+              />
+            </fieldset>
+
+            {formError ? <Alert variant="error">{formError}</Alert> : null}
+          </form>
+        </Modal>
+
+        <ConfirmDialog
+          open={Boolean(deleteConfirm)}
+          title="Delete supplier?"
+          description={
+            deleteError ||
+            `"${deleteConfirm?.name ?? 'This supplier'}" will be permanently removed.`
+          }
+          cancelLabel="Cancel"
+          confirmLabel="Delete Supplier"
+          pending={deleting}
+          danger
+          onCancel={() => {
+            if (deleting) return;
+            setDeleteConfirm(null);
+            setDeleteError(null);
+          }}
+          onConfirm={handleDelete}
+        />
+      </section>
+    </AppShell>
   );
 }

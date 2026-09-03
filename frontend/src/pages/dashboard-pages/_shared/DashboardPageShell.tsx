@@ -1,4 +1,6 @@
 import './styles.css';
+import PageHeader from '../../../components/PageHeader';
+import AppShell from '../../../layouts/AppShell';
 
 export type DashboardPageName =
   | 'Dashboard'
@@ -41,19 +43,6 @@ type DashboardPageShellProps = {
   children?: React.ReactNode;
 };
 
-const navigationItems: DashboardPageName[] = [
-  'Dashboard',
-  'Products',
-  'Categories',
-  'Suppliers',
-  'Inventory',
-  'Sales History',
-  'Forecasting',
-  'Reports',
-  'User Management',
-  'Settings',
-];
-
 const pageClassNames: Record<DashboardPageName, string> = {
   Dashboard: 'dashboard-page--dashboard',
   Products: 'dashboard-page--products',
@@ -83,62 +72,21 @@ export function DashboardPageShell({
   children,
 }: DashboardPageShellProps) {
   return (
-    <main className={`dashboard-page ${pageClassNames[activePage]}`}>
-      <aside className="dashboard-page-sidebar" aria-label="Dashboard navigation">
-        <div className="dashboard-page-brand">
-          <span className="dashboard-page-logo" aria-hidden="true">
-            <span />
-          </span>
-          <div>
-            <p className="dashboard-page-brand-name">StockFlow</p>
-            <p className="dashboard-page-brand-subtitle">Retail operations hub</p>
-          </div>
-        </div>
-
-        <nav className="dashboard-page-nav">
-          <p className="dashboard-page-nav-label">Menu</p>
-          <ul>
-            {navigationItems.map((item) => (
-              <li key={item}>
-                <button
-                  type="button"
-                  onClick={() => onNavigate?.(item)}
-                  className={
-                    item === activePage
-                      ? 'dashboard-page-nav-item is-active'
-                      : 'dashboard-page-nav-item'
-                  }
-                >
-                  <span className="dashboard-page-nav-dot" aria-hidden="true" />
-                  <span>{item}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </nav>
-
-        {userEmail && onLogout ? (
-          <section className="dashboard-page-user-card">
-            <p className="dashboard-page-user-label">Signed in as</p>
-            <strong>{userEmail}</strong>
-            <button type="button" onClick={onLogout}>
-              Log out
-            </button>
-          </section>
-        ) : null}
-      </aside>
-
-      <section className="dashboard-page-content">
-        <header className="dashboard-page-header">
-          <div>
-            <p className="dashboard-page-eyebrow">{eyebrow}</p>
-            <h1>{title}</h1>
-            <p>{description}</p>
-          </div>
-          <button type="button" className="dashboard-page-action" onClick={onAction}>
-            {actionLabel}
-          </button>
-        </header>
+    <AppShell
+      activePage={activePage}
+      userEmail={userEmail}
+      onLogout={onLogout}
+      onNavigate={onNavigate}
+      className={`dashboard-page ${pageClassNames[activePage]}`}
+    >
+      <section className="dashboard-page-content" aria-label={`${title} workspace`}>
+        <PageHeader
+          eyebrow={eyebrow}
+          title={title}
+          description={description}
+          actionLabel={actionLabel}
+          onAction={onAction}
+        />
 
         <section className="dashboard-page-metrics" aria-label={`${title} metrics`}>
           {metrics.map((metric) => (
@@ -176,6 +124,6 @@ export function DashboardPageShell({
           {children}
         </section>
       </section>
-    </main>
+    </AppShell>
   );
 }

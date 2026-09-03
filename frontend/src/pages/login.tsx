@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import SmokeStreams from '../components/SmokeStreams';
-import githubIcon from '../assets/github.png';
+import { useState, type FormEvent } from 'react';
+import { Alert, Button, Input } from '../components/ui';
 import '../styles/login.css';
 import type { AuthResponse } from '../types/auth';
 
@@ -9,6 +8,7 @@ type LoginProps = {
 };
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Login({ onAuthenticated }: LoginProps) {
   const [email, setEmail] = useState('');
@@ -17,14 +17,37 @@ export default function Login({ onAuthenticated }: LoginProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSignup, setIsSignup] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const handleLogin = async (event: React.FormEvent) => {
+  const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
 
+    const emailAddress = email.trim();
+    if (!emailAddress) {
+      setError('Email is required.');
+      return;
+    }
+
+    if (!EMAIL_PATTERN.test(emailAddress)) {
+      setError('Enter a valid email address.');
+      return;
+    }
+
+    if (!password) {
+      setError('Password is required.');
+      return;
+    }
+
+    if (isSignup && password.length < 8) {
+      setError('Password must be at least 8 characters.');
+      return;
+    }
+
     if (isSignup && password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError('Passwords do not match.');
       return;
     }
 
@@ -36,7 +59,7 @@ export default function Login({ onAuthenticated }: LoginProps) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email,
+          email: emailAddress,
           password,
           ...(isSignup ? { confirmPassword } : {}),
         }),
@@ -70,165 +93,246 @@ export default function Login({ onAuthenticated }: LoginProps) {
     setError('');
     setPassword('');
     setConfirmPassword('');
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
+  const passwordType = showPassword ? 'text' : 'password';
+  const confirmPasswordType = showConfirmPassword ? 'text' : 'password';
+  const progressSteps = isSignup
+    ? [
+        ['Account Setup', 'Create your credentials'],
+        ['Secure Access', 'Sign in securely'],
+        ['Dashboard', 'Start managing operations'],
+      ]
+    : [
+        ['Account Access', 'Sign in securely'],
+        ['Dashboard', 'Manage business records'],
+        ['Operations', 'Products, suppliers, and inventory'],
+      ];
+
   return (
-    <div className="login-container">
-      <SmokeStreams />
+    <main className="login-page">
+      <section className="login-shell" aria-label="Authentication">
+        <aside className="login-side-panel" aria-label="Sales and Inventory access">
+          <div className="login-brand">
+            <span className="login-brand__mark" aria-hidden="true">
+              SI
+            </span>
+            <div>
+              <p className="login-brand__name">Sales & Inventory</p>
+              <p className="login-brand__subtitle">Predictive Analysis</p>
+            </div>
+          </div>
 
-      <div className="aurora-bg">
-        <div className="aurora-glow aurora-1"></div>
-        <div className="aurora-glow aurora-2"></div>
-        <div className="aurora-glow aurora-3"></div>
-      </div>
+          <ol className="login-progress" aria-hidden="true">
+            {progressSteps.map(([title, description], index) => (
+              <li
+                key={title}
+                className={index === 0 ? 'is-active' : undefined}
+              >
+                <span className="login-progress__marker">{index + 1}</span>
+                <span>
+                  <strong>{title}</strong>
+                  <small>{description}</small>
+                </span>
+              </li>
+            ))}
+          </ol>
 
-      <div className="grid-pattern"></div>
+          <p className="login-side-meta">Sales & Inventory System</p>
+        </aside>
 
-      <div className="login-content">
-        <div className="login-right">
-          <div className="glass-card">
-            <div className="form-header">
-              <h2>{isSignup ? 'Create Account' : 'Welcome Back'}</h2>
+        <div className="login-form-panel">
+          <div className="login-mobile-brand" aria-label="Sales and Inventory">
+            <span className="login-brand__mark" aria-hidden="true">
+              SI
+            </span>
+            <div>
+              <p className="login-brand__name">Sales & Inventory</p>
+              <p className="login-brand__subtitle">Predictive Analysis</p>
+            </div>
+          </div>
+
+          <div className="login-card" aria-live="polite">
+            <div className="login-progress-dots" aria-hidden="true">
+              <span className="is-active" />
+              <span />
+              <span />
+            </div>
+
+            <div className="login-form-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path
+                  d="M6.75 10.5V8a5.25 5.25 0 0 1 10.5 0v2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+                <rect
+                  x="4.75"
+                  y="10.5"
+                  width="14.5"
+                  height="9"
+                  rx="2.25"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                />
+                <path
+                  d="M12 14v2"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </div>
+
+            <div className="login-card__header">
+              <p className="login-card__eyebrow">
+                {isSignup ? 'New account' : 'Account access'}
+              </p>
+              <h1>{isSignup ? 'Create your account' : 'Welcome back'}</h1>
               <p>
                 {isSignup
-                  ? 'Sign up with your email and password'
-                  : 'Sign in to your account'}
+                  ? 'Set up your account to access Sales & Inventory.'
+                  : 'Sign in to continue to your Sales & Inventory workspace.'}
               </p>
             </div>
 
-            <form onSubmit={handleLogin}>
-              <div className="form-group">
-                <label htmlFor="email">Email Address</label>
-                <div className="input-wrapper">
-                  <input
-                    id="email"
-                    type="email"
-                    placeholder="admin@vapeshop.com"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    autoComplete="email"
-                    required
-                  />
-                  <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
-                    <polyline points="22,6 12,13 2,6" />
-                  </svg>
-                </div>
-              </div>
+            <form className="login-form" onSubmit={handleLogin} noValidate>
+              <Input
+                id="auth-email"
+                label="Email Address"
+                type="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  setError('');
+                }}
+                autoComplete="email"
+                placeholder="name@company.com"
+                required
+                disabled={isLoading}
+              />
 
-              <div className="form-group">
-                <label htmlFor="password">Password</label>
-                <div className="input-wrapper">
+              <div className="login-password-field">
+                <label className="login-password-field__label" htmlFor="auth-password">
+                  Password <span aria-hidden="true">*</span>
+                </label>
+                <div className="login-password-control">
                   <input
-                    id="password"
-                    type="password"
-                    placeholder="At least 8 characters"
+                    id="auth-password"
+                    className="ui-input"
+                    type={passwordType}
                     value={password}
-                    onChange={(event) => setPassword(event.target.value)}
+                    onChange={(event) => {
+                      setPassword(event.target.value);
+                      setError('');
+                    }}
                     autoComplete={isSignup ? 'new-password' : 'current-password'}
                     minLength={isSignup ? 8 : undefined}
+                    placeholder="Enter your password"
                     required
+                    disabled={isLoading}
                   />
-                  <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
+                  <button
+                    type="button"
+                    className="login-password-toggle"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPassword((current) => !current)}
+                    disabled={isLoading}
+                  >
+                    {showPassword ? 'Hide' : 'Show'}
+                  </button>
                 </div>
               </div>
 
-              {isSignup && (
-                <div className="form-group">
-                  <label htmlFor="confirm-password">Confirm Password</label>
-                  <div className="input-wrapper">
+              {isSignup ? (
+                <div className="login-password-field">
+                  <label
+                    className="login-password-field__label"
+                    htmlFor="auth-confirm-password"
+                  >
+                    Confirm Password <span aria-hidden="true">*</span>
+                  </label>
+                  <div className="login-password-control">
                     <input
-                      id="confirm-password"
-                      type="password"
-                      placeholder="Retype your password"
+                      id="auth-confirm-password"
+                      className="ui-input"
+                      type={confirmPasswordType}
                       value={confirmPassword}
-                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      onChange={(event) => {
+                        setConfirmPassword(event.target.value);
+                        setError('');
+                      }}
                       autoComplete="new-password"
                       minLength={8}
+                      placeholder="Retype your password"
                       required
+                      disabled={isLoading}
                     />
-                    <svg className="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                      <path d="M20 6 9 17l-5-5" />
-                    </svg>
+                    <button
+                      type="button"
+                      className="login-password-toggle"
+                      aria-label={
+                        showConfirmPassword
+                          ? 'Hide confirm password'
+                          : 'Show confirm password'
+                      }
+                      onClick={() => setShowConfirmPassword((current) => !current)}
+                      disabled={isLoading}
+                    >
+                      {showConfirmPassword ? 'Hide' : 'Show'}
+                    </button>
                   </div>
                 </div>
-              )}
+              ) : null}
 
-              <div className="form-options">
-                <label className="remember-me">
-                  <input
-                    type="checkbox"
-                    checked={remember}
-                    onChange={(event) => setRemember(event.target.checked)}
-                  />
-                  Remember me
-                </label>
-                {!isSignup && (
-                  <span className="forgot-password">Forgot password?</span>
-                )}
-              </div>
+              <label className="login-remember">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(event) => setRemember(event.target.checked)}
+                  disabled={isLoading}
+                />
+                <span>Remember me</span>
+              </label>
 
-              {error && (
-                <div className="auth-error" role="alert">
+              {error ? (
+                <Alert variant="error" title="Authentication error">
                   {error}
-                </div>
-              )}
+                </Alert>
+              ) : null}
 
-              <button type="submit" className="login-btn" disabled={isLoading}>
-                {isLoading ? (
-                  <>
-                    <span className="spinner"></span>
-                    {isSignup ? 'Creating account...' : 'Signing in...'}
-                  </>
-                ) : (
-                  <>
-                    {isSignup ? 'Create Account' : 'Sign In'}
-                    <span className="btn-icon" aria-hidden="true">&rarr;</span>
-                  </>
-                )}
-              </button>
+              <Button
+                type="submit"
+                variant="primary"
+                loading={isLoading}
+                disabled={isLoading}
+                className="login-submit"
+              >
+                {isLoading
+                  ? isSignup
+                    ? 'Creating account...'
+                    : 'Signing in...'
+                  : isSignup
+                    ? 'Create Account'
+                    : 'Sign In'}
+              </Button>
             </form>
 
-            <div className="divider">
-              <span>or continue with</span>
-            </div>
-
-            <div className="social-login">
-              <button type="button" className="social-btn" disabled title="Google login is not connected yet">
-                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                Google
-              </button>
-              <button type="button" className="social-btn" disabled title="GitHub login is not connected yet">
-                <img className="social-icon-image" src={githubIcon} alt="" />
-                GitHub
-              </button>
-            </div>
-
-            <div className="signup-link">
-              {isSignup ? 'Already have an account?' : "Don't have an account?"}{' '}
-              <button type="button" className="link-button" onClick={toggleMode}>
-                {isSignup ? 'Sign in here' : 'Sign up here'}
+            <div className="login-mode-switch">
+              <span>
+                {isSignup ? 'Already have an account?' : "Don't have an account?"}
+              </span>
+              <button type="button" onClick={toggleMode} disabled={isLoading}>
+                {isSignup ? 'Sign in' : 'Create account'}
               </button>
             </div>
           </div>
+          <p className="login-panel-meta">Secure account access</p>
         </div>
-      </div>
-
-      <div className="data-nodes">
-        <div className="data-node node-1"></div>
-        <div className="data-node node-2"></div>
-        <div className="data-node node-3"></div>
-        <div className="data-node node-4"></div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }
-
