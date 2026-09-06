@@ -1,9 +1,37 @@
-.dashboard-page--inventory {
-	--page-bg: #f5fafc;
-	--page-border: #d2e5ee;
-	--page-accent: #1689ad;
-	--page-accent-rgb: 22, 137, 173;
-	--page-accent-soft: #e4f6fb;
-}
-
-
+.dashboard-page--inventory { --page-bg: #f5fafc; --page-border: #d2e5ee; --page-accent: #1689ad; --page-accent-rgb: 22, 137, 173; --page-accent-soft: #e4f6fb; }
+.inventory-page { display: grid; gap: var(--space-4); }
+.inventory-header, .inventory-summary, .inventory-toolbar, .inventory-detail__facts { display: grid; gap: var(--space-3); }
+.inventory-header { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
+.inventory-header h1 { margin: 0; color: var(--color-text); font-size: var(--text-page-title); line-height: var(--line-tight); }
+.inventory-header > div > p:not(.inventory-eyebrow) { margin: var(--space-2) 0 0; color: var(--color-text-secondary); font-size: var(--text-body); }
+.inventory-eyebrow { margin: 0 0 var(--space-1); color: var(--color-primary); font-size: var(--text-meta); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.inventory-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.inventory-summary article { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--page-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-xs); }
+.inventory-summary span { color: var(--color-text-muted); font-size: var(--text-meta); font-weight: 700; }
+.inventory-summary strong { color: var(--color-text); font-size: 24px; line-height: 1; }
+.inventory-card { display: grid; gap: var(--space-4); }
+.inventory-toolbar { grid-template-columns: minmax(220px, 1fr) repeat(4, minmax(120px, 160px)); align-items: end; }
+.inventory-state { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-8); color: var(--color-text-secondary); }
+.inventory-table-wrap, .movement-table-wrap { overflow-x: auto; }
+.inventory-table, .movement-table { width: 100%; border-collapse: collapse; font-size: var(--text-table); }
+.inventory-table { min-width: 940px; }
+.inventory-table th, .movement-table th { padding: 0 10px 10px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: var(--text-meta); font-weight: 800; text-align: left; text-transform: uppercase; }
+.inventory-table td, .movement-table td { padding: 13px 10px; border-bottom: 1px solid var(--color-border-subtle); color: var(--color-text-secondary); white-space: nowrap; vertical-align: middle; }
+.inventory-table tbody tr:last-child td, .movement-table tbody tr:last-child td { border-bottom: 0; }
+.inventory-table td:first-child { color: var(--color-text); }
+.inventory-table td:nth-child(6) { display: flex; align-items: center; gap: var(--space-2); }
+.inventory-actions { display: flex; gap: var(--space-1); }
+.inventory-actions .ui-button { padding: 7px 9px; font-size: 12px; }
+.inventory-detail { display: grid; gap: var(--space-4); }
+.inventory-detail__facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.inventory-detail__facts span { display: grid; gap: 4px; color: var(--color-text-muted); font-size: var(--text-meta); font-weight: 700; }
+.inventory-detail__facts strong { color: var(--color-text); font-size: var(--text-body); font-weight: 600; }
+.inventory-detail h3 { margin: var(--space-2) 0 0; color: var(--color-text); font-size: var(--text-section-title); }
+.movement-positive { color: var(--color-success) !important; font-weight: 800; }
+.movement-negative { color: var(--color-danger) !important; font-weight: 800; }
+.inventory-form { display: grid; gap: var(--space-4); }
+.inventory-form__product { display: grid; gap: 4px; padding: var(--space-3); border-left: 3px solid var(--color-primary); background: var(--color-primary-subtle); }
+.inventory-form__product span, .inventory-form__product small { color: var(--color-text-secondary); font-size: var(--text-meta); }
+.inventory-form__product strong { color: var(--color-text); }
+@media (max-width: 900px) { .inventory-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inventory-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .inventory-toolbar .ui-field:first-child { grid-column: 1 / -1; } }
+@media (max-width: 560px) { .inventory-header { grid-template-columns: 1fr; } .inventory-toolbar { grid-template-columns: 1fr; } .inventory-toolbar .ui-field:first-child { grid-column: auto; } .inventory-detail__facts { grid-template-columns: 1fr 1fr; } }

@@ -6,11 +6,12 @@ import {
   listProducts,
   updateProduct,
 } from '../controllers/productController.js';
+import { requireRole } from '../middleware/authMiddleware.js';
 
 export const productRouter = Router();
 
-productRouter.get('/', listProducts);
-productRouter.get('/:id', getProduct);
-productRouter.post('/', createProduct);
-productRouter.put('/:id', updateProduct);
-productRouter.delete('/:id', deleteProduct);
+productRouter.get('/', requireRole('Admin', 'Staff'), listProducts);
+productRouter.get('/:id', requireRole('Admin', 'Staff'), getProduct);
+productRouter.post('/', requireRole('Admin'), createProduct);
+productRouter.put('/:id', requireRole('Admin'), updateProduct);
+productRouter.delete('/:id', requireRole('Admin'), deleteProduct);

@@ -8,28 +8,36 @@ datasource db {
 }
 
 model User {
-  id                    String          @id @default(cuid())
-  email                 String          @unique
+  id                    String              @id @default(cuid())
+  email                 String              @unique
+  fullName              String?
+  username              String?             @unique
   passwordHash          String
   roleId                String
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
-  role                  Role            @relation("UserAssignedRole", fields: [roleId], references: [id], onDelete: Restrict)
-  loginHistory          LoginHistory[]  @relation("LoginHistoryUser")
-  auditEvents           AuditEvent[]    @relation("AuditEventActor")
-  createdRoles          Role[]          @relation("RoleCreatedBy")
-  updatedRoles          Role[]          @relation("RoleUpdatedBy")
-  cashierSales          Sale[]          @relation("SaleCashier")
+  status                UserStatus          @default(ACTIVE)
+  mustChangePassword    Boolean             @default(false)
+  lastLoginAt           DateTime?
+  createdById           String?
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  role                  Role                @relation("UserAssignedRole", fields: [roleId], references: [id], onDelete: Restrict)
+  createdBy             User?               @relation("UserCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  createdUsers          User[]              @relation("UserCreatedBy")
+  loginHistory          LoginHistory[]      @relation("LoginHistoryUser")
+  auditEvents           AuditEvent[]        @relation("AuditEventActor")
+  createdRoles          Role[]              @relation("RoleCreatedBy")
+  updatedRoles          Role[]              @relation("RoleUpdatedBy")
+  cashierSales          Sale[]              @relation("SaleCashier")
   inventoryMovements    InventoryMovement[] @relation("InventoryMovementPerformedBy")
-  createdCategories     Category[]      @relation("CategoryCreatedBy")
-  updatedCategories     Category[]      @relation("CategoryUpdatedBy")
-  createdProducts       Product[]       @relation("ProductCreatedBy")
-  updatedProducts       Product[]       @relation("ProductUpdatedBy")
-  createdSuppliers      Supplier[]      @relation("SupplierCreatedBy")
-  updatedSuppliers      Supplier[]      @relation("SupplierUpdatedBy")
-  createdPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderCreatedBy")
-  updatedPurchaseOrders PurchaseOrder[] @relation("PurchaseOrderUpdatedBy")
-  generatedForecastRuns ForecastRun[]   @relation("ForecastRunGeneratedBy")
+  createdCategories     Category[]          @relation("CategoryCreatedBy")
+  updatedCategories     Category[]          @relation("CategoryUpdatedBy")
+  createdProducts       Product[]           @relation("ProductCreatedBy")
+  updatedProducts       Product[]           @relation("ProductUpdatedBy")
+  createdSuppliers      Supplier[]          @relation("SupplierCreatedBy")
+  updatedSuppliers      Supplier[]          @relation("SupplierUpdatedBy")
+  createdPurchaseOrders PurchaseOrder[]     @relation("PurchaseOrderCreatedBy")
+  updatedPurchaseOrders PurchaseOrder[]     @relation("PurchaseOrderUpdatedBy")
+  generatedForecastRuns ForecastRun[]       @relation("ForecastRunGeneratedBy")
 
   @@index([roleId])
 }
@@ -37,6 +45,12 @@ model User {
 enum RoleStatus {
   ACTIVE
   ARCHIVED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 enum CategoryStatus {
@@ -312,28 +326,30 @@ model Category {
 }
 
 model Product {
-  id          String          @id @default(cuid())
-  sku         String          @unique
-  slug        String          @unique
-  name        String
-  description String?
-  status      ProductStatus   @default(DRAFT)
-  unitType    ProductUnitType @default(PIECE)
-  price       Decimal         @db.Decimal(12, 2)
-  cost        Decimal?        @db.Decimal(12, 2)
-  categoryId  String
-  createdById String?
-  updatedById String?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  id           String          @id @default(cuid())
+  sku          String          @unique
+  slug         String          @unique
+  name         String
+  description  String?
+  status       ProductStatus   @default(DRAFT)
+  unitType     ProductUnitType @default(PIECE)
+  price        Decimal         @db.Decimal(12, 2)
+  cost         Decimal?        @db.Decimal(12, 2)
+  reorderPoint Int?
+  categoryId   String
+  createdById  String?
+  updatedById  String?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
-  category     Category      @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  createdBy    User?         @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy    User?         @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
-  forecastRuns ForecastRun[] @relation("ProductForecastRuns")
-  saleItems    SaleItem[]    @relation("ProductSaleItems")
+  category           Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy          User?               @relation("ProductCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy          User?               @relation("ProductUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  forecastRuns       ForecastRun[]       @relation("ProductForecastRuns")
+  saleItems          SaleItem[]          @relation("ProductSaleItems")
   inventoryMovements InventoryMovement[] @relation("ProductInventoryMovements")
-  stockLevel StockLevel? @relation("ProductStockLevel")
+  purchaseOrderItems PurchaseOrderItem[] @relation("ProductPurchaseOrderItems")
+  stockLevel         StockLevel?         @relation("ProductStockLevel")
 
   @@index([categoryId])
   @@index([status])
@@ -413,6 +429,8 @@ model Sale {
   discountCents         Int               @default(0)
   taxCents              Int               @default(0)
   grandTotalCents       Int               @default(0)
+  cashReceivedCents     Int?
+  changeDueCents        Int?
   notes                 String?
   completedAt           DateTime?
   cancelledAt           DateTime?
@@ -443,8 +461,8 @@ model SaleItem {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  product Product @relation("ProductSaleItems", fields: [productId], references: [id], onDelete: Restrict)
+  sale               Sale                @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  product            Product             @relation("ProductSaleItems", fields: [productId], references: [id], onDelete: Restrict)
   inventoryMovements InventoryMovement[] @relation("SaleItemInventoryMovements")
 
   @@unique([saleId, lineNumber])
@@ -461,14 +479,16 @@ model InventoryMovement {
   unitCostCents       Int?
   performedById       String?
   saleItemId          String?
+  purchaseOrderItemId String?
   reversesMovementId  String?
   note                String?
   createdAt           DateTime              @default(now())
 
-  product           Product              @relation("ProductInventoryMovements", fields: [productId], references: [id], onDelete: Restrict)
-  performedBy       User?                @relation("InventoryMovementPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
-  saleItem          SaleItem?            @relation("SaleItemInventoryMovements", fields: [saleItemId], references: [id], onDelete: Restrict)
-  reversesMovement  InventoryMovement?   @relation("InventoryMovementReversal", fields: [reversesMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  product             Product             @relation("ProductInventoryMovements", fields: [productId], references: [id], onDelete: Restrict)
+  performedBy         User?               @relation("InventoryMovementPerformedBy", fields: [performedById], references: [id], onDelete: SetNull)
+  saleItem            SaleItem?           @relation("SaleItemInventoryMovements", fields: [saleItemId], references: [id], onDelete: Restrict)
+  purchaseOrderItem   PurchaseOrderItem?  @relation("PurchaseOrderItemInventoryMovements", fields: [purchaseOrderItemId], references: [id], onDelete: SetNull)
+  reversesMovement    InventoryMovement?  @relation("InventoryMovementReversal", fields: [reversesMovementId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   reversedByMovements InventoryMovement[] @relation("InventoryMovementReversal")
 
   @@index([productId])
@@ -476,6 +496,7 @@ model InventoryMovement {
   @@index([createdAt])
   @@index([performedById])
   @@index([saleItemId])
+  @@index([purchaseOrderItemId])
   @@index([reversesMovementId])
 }
 
@@ -552,14 +573,16 @@ model PurchaseOrder {
   receivedAt           DateTime?
   cancelledAt          DateTime?
   notes                String?
+  subtotalCents        Int                 @default(0)
   createdById          String?
   updatedById          String?
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 
-  supplier  Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  createdBy User?    @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy User?    @relation("PurchaseOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  supplier  Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  createdBy User?               @relation("PurchaseOrderCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy User?               @relation("PurchaseOrderUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+  items     PurchaseOrderItem[]
 
   @@index([supplierId])
   @@index([status])
@@ -568,4 +591,26 @@ model PurchaseOrder {
   @@index([receivedAt])
   @@index([createdById])
   @@index([updatedById])
+}
+
+model PurchaseOrderItem {
+  id                  String   @id @default(cuid())
+  purchaseOrderId     String
+  productId           String
+  quantityOrdered     Int
+  quantityReceived    Int      @default(0)
+  unitCostCents       Int
+  lineTotalCents      Int
+  productNameSnapshot String
+  skuSnapshot         String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  purchaseOrder      PurchaseOrder       @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  product            Product             @relation("ProductPurchaseOrderItems", fields: [productId], references: [id], onDelete: Restrict)
+  inventoryMovements InventoryMovement[] @relation("PurchaseOrderItemInventoryMovements")
+
+  @@unique([purchaseOrderId, productId])
+  @@index([purchaseOrderId])
+  @@index([productId])
 }

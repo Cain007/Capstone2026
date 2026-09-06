@@ -1,9 +1,118 @@
 .dashboard-page--settings {
-	--page-bg: #f8f9f7;
-	--page-border: #dfe3dc;
-	--page-accent: #5f6f52;
-	--page-accent-rgb: 95, 111, 82;
-	--page-accent-soft: #edf4e8;
+  --page-bg: #f7f8f5;
+  --page-border: #dfe4dc;
+  --page-accent: #516b57;
+  --page-accent-rgb: 81, 107, 87;
+  --page-accent-soft: #ecf4ed;
 }
 
+.settings-page {
+  display: grid;
+  gap: 1.25rem;
+  max-width: 1120px;
+  margin: 0 auto;
+}
 
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.settings-card {
+  display: grid;
+  gap: 1rem;
+  border-color: var(--page-border);
+}
+
+.settings-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.settings-card__header h2 {
+  margin: 0.2rem 0 0;
+  color: #18211a;
+  font-size: 1.1rem;
+  line-height: 1.25;
+}
+
+.settings-eyebrow {
+  margin: 0;
+  color: var(--page-accent);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.settings-facts {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.settings-facts div {
+  display: grid;
+  grid-template-columns: minmax(9rem, 0.42fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  padding-top: 0.75rem;
+  border-top: 1px solid #e6ebe4;
+}
+
+.settings-facts dt {
+  color: #5f6c61;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.settings-facts dd {
+  min-width: 0;
+  margin: 0;
+  color: #162017;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.settings-password-card {
+  max-width: 720px;
+}
+
+.settings-password-form {
+  display: grid;
+  gap: 1rem;
+  max-width: 520px;
+}
+
+.settings-password-form .ui-button {
+  justify-self: start;
+}
+
+@media (max-width: 900px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-password-card {
+    max-width: none;
+  }
+}
+
+@media (max-width: 560px) {
+  .settings-card__header {
+    display: grid;
+  }
+
+  .settings-facts div {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
+  }
+
+  .settings-password-form .ui-button {
+    width: 100%;
+  }
+}

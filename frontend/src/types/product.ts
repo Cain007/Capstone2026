@@ -8,6 +8,7 @@ export type Product = {
   unitType: string;
   price: string | number;
   cost: string | number | null;
+  reorderPoint: number | null;
   categoryId: string;
   createdAt: string;
   updatedAt: string;

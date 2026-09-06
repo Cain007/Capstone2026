@@ -22,12 +22,14 @@ import {
 import AppShell from '../../../layouts/AppShell';
 import type { Category } from '../../../types/category';
 import type { Product } from '../../../types/product';
+import type { UserRole } from '../../../types/auth';
 import { statusBadgeVariant, statusLabel } from '../../../utils/status';
 import type { DashboardPageName } from '../_shared/DashboardPageShell';
 import './styles.css';
 
 type DashboardPageProps = {
   userEmail?: string;
+  userRole?: UserRole;
   onLogout?: () => void;
   onNavigate?: (page: DashboardPageName) => void;
 };
@@ -52,6 +54,7 @@ type ProductFormData = {
   unitType: ProductUnitType;
   price: string;
   cost: string;
+  reorderPoint: string;
   categoryId: string;
 };
 
@@ -63,6 +66,7 @@ const EMPTY_FORM: ProductFormData = {
   unitType: 'PIECE',
   price: '',
   cost: '',
+  reorderPoint: '',
   categoryId: '',
 };
 
@@ -127,6 +131,10 @@ function formatCurrency(value: string | number | null | undefined): string {
   return numericValue === null ? '-' : currencyFormatter.format(numericValue);
 }
 
+function formatReorderPoint(value: number | null | undefined): string {
+  return value === null || value === undefined ? '-' : String(value);
+}
+
 function formatUnit(unitType: string): string {
   return unitType
     .toLowerCase()
@@ -144,7 +152,8 @@ async function readMessage(response: Response, fallback: string) {
   }
 }
 
-export default function ProductsPage({ userEmail, onLogout, onNavigate }: DashboardPageProps) {
+export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate }: DashboardPageProps) {
+  const canManage = userRole === 'Admin';
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -322,6 +331,7 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
         : 'PIECE',
       price: product.price == null ? '' : String(product.price),
       cost: product.cost == null ? '' : String(product.cost),
+      reorderPoint: product.reorderPoint == null ? '' : String(product.reorderPoint),
       categoryId: product.categoryId,
     });
     setImagePreview(null);
@@ -406,6 +416,16 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
       }
     }
 
+    let reorderPoint: number | null = null;
+    const reorderPointRaw = formData.reorderPoint.trim();
+    if (reorderPointRaw) {
+      reorderPoint = Number(reorderPointRaw);
+      if (!Number.isInteger(reorderPoint) || reorderPoint < 0) {
+        setFormError('Reorder point must be a non-negative whole number.');
+        return;
+      }
+    }
+
     setSubmitting(true);
     try {
       const headers: Record<string, string> = {
@@ -421,6 +441,7 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
         unitType: formData.unitType,
         price,
         cost,
+        reorderPoint,
         categoryId,
       };
 
@@ -484,6 +505,7 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
     <AppShell
       activePage="Products"
       userEmail={userEmail}
+      userRole={userRole}
       onLogout={onLogout}
       onNavigate={onNavigate}
       className="dashboard-page dashboard-page--products"
@@ -493,8 +515,8 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
           eyebrow="Catalog"
           title="Products"
           description="Manage product information, pricing, categories, and catalog status."
-          actionLabel="+ Add Product"
-          onAction={openCreateModal}
+          actionLabel={canManage ? '+ Add Product' : ''}
+          onAction={canManage ? openCreateModal : undefined}
         />
 
         {successMessage ? (
@@ -598,11 +620,11 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
             <EmptyState
               title="No products yet."
               description="Add your first product to start building the catalog."
-              action={
+              action={canManage ? (
                 <Button variant="primary" onClick={openCreateModal}>
                   + Add Product
                 </Button>
-              }
+              ) : undefined}
             />
           ) : null}
 
@@ -628,7 +650,7 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
                     <th scope="col">Category</th>
                     <th scope="col">Unit</th>
                     <th scope="col">Selling Price</th>
-                    <th scope="col">Cost</th>
+                    <th scope="col">Reorder Point</th>
                     <th scope="col">Status</th>
                     <th scope="col">Updated</th>
                     <th scope="col" className="products-actions-heading">
@@ -658,7 +680,7 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
                       <td>{product.category?.name ?? 'Uncategorized'}</td>
                       <td>{formatUnit(product.unitType)}</td>
                       <td>{formatCurrency(product.price)}</td>
-                      <td>{formatCurrency(product.cost)}</td>
+                      <td>{formatReorderPoint(product.reorderPoint)}</td>
                       <td>
                         <Badge variant={statusBadgeVariant(product.status)}>
                           {statusLabel(product.status)}
@@ -666,7 +688,7 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
                       </td>
                       <td>{formatDate(product.updatedAt)}</td>
                       <td>
-                        <div className="products-row-actions">
+                        {canManage ? <div className="products-row-actions">
                           <Button
                             variant="ghost"
                             aria-label={`Edit ${product.name}`}
@@ -685,7 +707,7 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
                           >
                             Delete
                           </Button>
-                        </div>
+                        </div> : null}
                       </td>
                     </tr>
                   ))}
@@ -808,6 +830,16 @@ export default function ProductsPage({ userEmail, onLogout, onNavigate }: Dashbo
                   onChange={(event) => updateForm('cost', event.target.value)}
                   placeholder="0.00"
                   helperText="Optional"
+                />
+                <Input
+                  label="Reorder Point"
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={formData.reorderPoint}
+                  onChange={(event) => updateForm('reorderPoint', event.target.value)}
+                  placeholder="Optional"
+                  helperText="Stock level at or below which this product should be considered for restocking."
                 />
               </div>
             </fieldset>

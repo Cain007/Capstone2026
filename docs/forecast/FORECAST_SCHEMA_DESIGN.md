@@ -114,7 +114,7 @@ Related additive relation fields:
 | `ForecastRun.generatedBy -> User` | `SetNull` | Losing a user account must never delete or block forecast history. |
 | `ForecastPoint.forecastRun -> ForecastRun` | `Cascade` | Points have no independent meaning without their run. |
 
-The workspace now has `Sale` and `SaleItem` models, not `SalesOrder`/`SalesOrderLineItem`. Forecast accuracy joins should compare `ForecastPoint` periods against realized `Sale`/`SaleItem` totals after the sales service is implemented. The workspace does not yet contain `InventoryMovement` or `StockLevel`, so this schema does not create foreign keys to inventory tables.
+The workspace has `Sale`, `SaleItem`, `InventoryMovement`, and `StockLevel` models. Forecast evaluation compares persisted `ForecastPoint` predictions against completed `Sale`/`SaleItem` actual demand for matured Manila business dates.
 
 ## Unique Constraints And Indexes
 
@@ -155,8 +155,8 @@ Persist:
 Compute at query time:
 
 - Trend deltas between forecast runs.
-- Forecast accuracy against realized sales totals.
-- Forecast error percentages.
+- Forecast evaluation against realized sales totals.
+- Forecast MAE, WAPE, and bias.
 - Product/category aggregate summaries.
 - Inventory reorder recommendations.
 

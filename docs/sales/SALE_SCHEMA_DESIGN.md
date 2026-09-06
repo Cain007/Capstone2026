@@ -42,6 +42,8 @@ model Sale {
   discountCents         Int               @default(0)
   taxCents              Int               @default(0)
   grandTotalCents       Int               @default(0)
+  cashReceivedCents     Int?
+  changeDueCents        Int?
   notes                 String?
   completedAt           DateTime?
   cancelledAt           DateTime?
@@ -116,7 +118,9 @@ Cancelling a `DRAFT` sale must not touch inventory because no stock was deducted
 
 Voiding a `COMPLETED` sale must create reversing inventory movements. Never delete the original movements and never delete the completed sale.
 
-The current workspace does not yet contain `InventoryMovement` or `StockLevel`, so this schema does not add foreign keys to missing models. When the inventory ledger is added, `InventoryMovement.sourceSaleItemId` should point to `SaleItem` and completed sales should remain hard-delete protected at the service layer.
+The current workspace contains `InventoryMovement` and `StockLevel`. Completed POS sales create `SALE_DEDUCTION` movements linked to `SaleItem` and update `StockLevel` in the sale transaction.
+
+Cash sales also store `cashReceivedCents` and `changeDueCents` so Sales History can show practical tender details without recalculating them from frontend-only state.
 
 ## Relations And Delete Rules
 
@@ -211,4 +215,3 @@ Duplicate product lines are allowed. A POS may scan the same product twice under
 Refunds and returns are intentionally out of scope. Add a separate return/refund model later so the completed sale remains immutable.
 
 Void-vs-delete recommendation: never delete completed sales. Use status transitions and reversing inventory movements. Hard delete is acceptable only for abandoned draft cleanup before inventory has been touched.
-

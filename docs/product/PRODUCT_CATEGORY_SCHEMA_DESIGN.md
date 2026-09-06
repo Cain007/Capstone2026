@@ -64,6 +64,7 @@ model Product {
   unitType    ProductUnitType @default(PIECE)
   price       Decimal         @db.Decimal(12, 2)
   cost        Decimal?        @db.Decimal(12, 2)
+  reorderPoint Int?
   categoryId  String
   createdById String?
   updatedById String?
@@ -120,6 +121,8 @@ Audit fields are nullable and use `SetNull` so deleting a user never deletes or 
 
 Store source data: SKU, slug, name, description, status, unit type, price, cost, and category.
 
+The current implementation also stores an optional integer `reorderPoint` on Product. Inventory screens use it with `StockLevel.currentQuantity` to classify stock health and recommend static reorder quantities.
+
 Compute these in queries or reports:
 
 - Stock on hand from future inventory transactions.
@@ -135,4 +138,3 @@ Do not store aggregates yet. The capstone dataset should be small enough to comp
 The recommended choice is single category per product, plus optional category hierarchy. Many-to-many categories are more flexible, but they complicate CRUD, filtering, reporting, and future inventory summaries. If marketing tags are needed later, add a separate `ProductTag` model instead of turning categories into tags.
 
 Product variants are intentionally omitted. They should only be added if the real shop needs variant-level inventory, such as flavor, nicotine strength, size, or color tracked under one parent product. Until then, each sellable item should be its own `Product` row with its own SKU.
-

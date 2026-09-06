@@ -15,12 +15,14 @@ import {
 } from '../../../components/ui';
 import AppShell from '../../../layouts/AppShell';
 import type { Category } from '../../../types/category';
+import type { UserRole } from '../../../types/auth';
 import { statusBadgeVariant, statusLabel } from '../../../utils/status';
 import type { DashboardPageName } from '../_shared/DashboardPageShell';
 import './styles.css';
 
 type DashboardPageProps = {
   userEmail?: string;
+  userRole?: UserRole;
   onLogout?: () => void;
   onNavigate?: (page: DashboardPageName) => void;
 };
@@ -73,7 +75,8 @@ async function readMessage(response: Response, fallback: string) {
   }
 }
 
-export default function CategoriesPage({ userEmail, onLogout, onNavigate }: DashboardPageProps) {
+export default function CategoriesPage({ userEmail, userRole, onLogout, onNavigate }: DashboardPageProps) {
+  const canManage = userRole === 'Admin';
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -260,6 +263,7 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
     <AppShell
       activePage="Categories"
       userEmail={userEmail}
+      userRole={userRole}
       onLogout={onLogout}
       onNavigate={onNavigate}
       className="dashboard-page dashboard-page--categories"
@@ -269,8 +273,8 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
           eyebrow="Catalog"
           title="Categories"
           description="Organize products into manageable catalog groups."
-          actionLabel="+ Add Category"
-          onAction={openCreateModal}
+          actionLabel={canManage ? '+ Add Category' : ''}
+          onAction={canManage ? openCreateModal : undefined}
         />
 
         {successMessage ? (
@@ -336,11 +340,11 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
             <EmptyState
               title="No categories yet."
               description="Create your first category to organize the product catalog."
-              action={
+              action={canManage ? (
                 <Button variant="primary" onClick={openCreateModal}>
                   + Add Category
                 </Button>
-              }
+              ) : undefined}
             />
           ) : null}
 
@@ -394,7 +398,7 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
                       </td>
                       <td>{formatDate(category.updatedAt)}</td>
                       <td>
-                        <div className="categories-row-actions">
+                        {canManage ? <div className="categories-row-actions">
                           <Button
                             variant="ghost"
                             aria-label={`Edit ${category.name}`}
@@ -413,7 +417,7 @@ export default function CategoriesPage({ userEmail, onLogout, onNavigate }: Dash
                           >
                             Delete
                           </Button>
-                        </div>
+                        </div> : null}
                       </td>
                     </tr>
                   ))}

@@ -2,11 +2,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import PageHeader from '../../../components/PageHeader';
 import { Alert, Badge, Button, Card, EmptyState, Spinner } from '../../../components/ui';
 import AppShell from '../../../layouts/AppShell';
-import type { Category } from '../../../types/category';
-import type { Product } from '../../../types/product';
-import type { Supplier } from '../../../types/supplier';
-import { statusBadgeVariant, statusLabel } from '../../../utils/status';
+import type {
+  AdminDashboardResponse,
+  DashboardLowStockProduct,
+  DashboardPredictiveRisk,
+  DashboardRecentActivity,
+  DashboardStockHealth,
+  DashboardUpcomingDelivery,
+} from '../../../types/dashboard';
 import type { DashboardPageName } from '../_shared/DashboardPageShell';
+import SalesTrendChart from './SalesTrendChart';
 import './styles.css';
 
 type DashboardPageProps = {
@@ -15,32 +20,69 @@ type DashboardPageProps = {
   onNavigate?: (page: DashboardPageName) => void;
 };
 
-type DashboardData = {
-  products: Product[];
-  categories: Category[];
-  suppliers: Supplier[];
-};
-
-type ActivityItem = {
-  id: string;
-  type: 'Product' | 'Category' | 'Supplier';
-  name: string;
-  status: string;
-  updatedAt: string;
-};
-
-type AttentionItem = {
+type KpiCard = {
   label: string;
-  count: number;
+  value: string;
   helper: string;
+  tone: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
 };
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
+const moneyFormatter = new Intl.NumberFormat('en-PH', {
+  style: 'currency',
+  currency: 'PHP',
+});
+const numberFormatter = new Intl.NumberFormat('en-PH');
+const dateFormatter = new Intl.DateTimeFormat('en-PH', {
+  dateStyle: 'medium',
+  timeZone: 'Asia/Manila',
+});
+const dateTimeFormatter = new Intl.DateTimeFormat('en-PH', {
   dateStyle: 'medium',
   timeStyle: 'short',
+  timeZone: 'Asia/Manila',
 });
+
+const stockHealthLabels: Record<DashboardStockHealth, string> = {
+  OUT_OF_STOCK: 'Out of Stock',
+  CRITICAL: 'Critical',
+  LOW: 'Low',
+  HEALTHY: 'Healthy',
+  UNCONFIGURED: 'Not Configured',
+};
+
+const stockHealthVariants: Record<
+  DashboardStockHealth,
+  'neutral' | 'success' | 'warning' | 'danger' | 'info'
+> = {
+  OUT_OF_STOCK: 'danger',
+  CRITICAL: 'danger',
+  LOW: 'warning',
+  HEALTHY: 'success',
+  UNCONFIGURED: 'neutral',
+};
+
+const predictiveRiskLabels: Record<DashboardPredictiveRisk, string> = {
+  OUT_OF_STOCK: 'Out of Stock',
+  CRITICAL: 'Critical',
+  AT_RISK: 'At Risk',
+  STABLE: 'Stable',
+  NO_DEMAND: 'No Demand Detected',
+  NO_FORECAST: 'Forecast Required',
+};
+
+const predictiveRiskVariants: Record<
+  DashboardPredictiveRisk,
+  'neutral' | 'success' | 'warning' | 'danger' | 'info'
+> = {
+  OUT_OF_STOCK: 'danger',
+  CRITICAL: 'danger',
+  AT_RISK: 'warning',
+  STABLE: 'success',
+  NO_DEMAND: 'neutral',
+  NO_FORECAST: 'info',
+};
 
 function getAuthToken(): string | null {
   return localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
@@ -51,161 +93,393 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
-    headers: { ...authHeaders() },
-  });
-
-  if (!response.ok) {
-    throw new Error('Unable to load dashboard data');
-  }
-
-  return (await response.json()) as T;
+async function readDashboardError(response: Response) {
+  if (response.status === 403) return 'You do not have permission to view dashboard data.';
+  if (response.status === 401) return 'Your session has expired. Please sign in again.';
+  return 'Unable to load dashboard data.';
 }
 
-function formatDateTime(value: string): string {
-  const date = new Date(value);
+function money(cents: number) {
+  return moneyFormatter.format(cents / 100);
+}
 
-  if (Number.isNaN(date.getTime())) {
-    return 'Date unavailable';
+function count(value: number) {
+  return numberFormatter.format(value);
+}
+
+function formatQuantity(value: number) {
+  return Number.isInteger(value)
+    ? count(value)
+    : value.toLocaleString('en-PH', { maximumFractionDigits: 2 });
+}
+
+function formatDecimal(value: number | null, suffix = '') {
+  if (value === null) return '-';
+  return `${value.toLocaleString('en-PH', { maximumFractionDigits: 2 })}${suffix}`;
+}
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Date unavailable' : dateFormatter.format(date);
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Date unavailable' : dateTimeFormatter.format(date);
+}
+
+function humanizeEnum(value: string | null | undefined) {
+  if (!value) return '-';
+  return value
+    .split('_')
+    .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
+    .join(' ');
+}
+
+function unitLabel(value: string) {
+  return humanizeEnum(value);
+}
+
+function reorderLabel(product: DashboardLowStockProduct) {
+  if (product.recommendedReorderQuantity === null) return 'Not Configured';
+  if (product.recommendedReorderQuantity === 0) return 'No reorder needed';
+  return `${formatQuantity(product.recommendedReorderQuantity)} ${unitLabel(product.unitType)}`;
+}
+
+function entityLabel(activity: DashboardRecentActivity) {
+  return activity.entityLabel || humanizeEnum(activity.entityType);
+}
+
+function LoadingState({ refreshing }: { refreshing: boolean }) {
+  return (
+    <section className="real-dashboard-loading" role="status" aria-live="polite">
+      <Spinner size="md" label={refreshing ? 'Refreshing dashboard data' : 'Loading dashboard data'} />
+      <span>{refreshing ? 'Refreshing dashboard data...' : 'Loading dashboard data...'}</span>
+    </section>
+  );
+}
+
+function StockHealthSummary({
+  inventory,
+}: {
+  inventory: AdminDashboardResponse['inventory'];
+}) {
+  const items: Array<{ label: string; value: number; variant: 'neutral' | 'success' | 'warning' | 'danger' }> = [
+    { label: 'Out of Stock', value: inventory.outOfStock, variant: 'danger' },
+    { label: 'Critical', value: inventory.critical, variant: 'danger' },
+    { label: 'Low', value: inventory.low, variant: 'warning' },
+    { label: 'Healthy', value: inventory.healthy, variant: 'success' },
+    { label: 'Not Configured', value: inventory.unconfiguredReorderPoints, variant: 'neutral' },
+  ];
+
+  return (
+    <div className="real-dashboard-stock-summary" aria-label="Stock health summary">
+      {items.map((item) => (
+        <span key={item.label}>
+          <Badge variant={item.variant}>{count(item.value)}</Badge>
+          {item.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function LowStockTable({ products }: { products: DashboardLowStockProduct[] }) {
+  if (!products.length) {
+    return <EmptyState title="No inventory items currently require attention." />;
   }
 
-  return dateTimeFormatter.format(date);
+  return (
+    <div className="real-dashboard-table-wrap">
+      <table className="real-dashboard-table">
+        <thead>
+          <tr>
+            <th scope="col">SKU</th>
+            <th scope="col">Product</th>
+            <th scope="col">Current Stock</th>
+            <th scope="col">Reorder Point</th>
+            <th scope="col">Status</th>
+            <th scope="col">Static Reorder</th>
+          </tr>
+        </thead>
+        <tbody>
+          {products.map((product) => (
+            <tr key={product.productId}>
+              <td><span className="real-dashboard-mono">{product.sku}</span></td>
+              <td><strong>{product.name}</strong></td>
+              <td>{formatQuantity(product.currentQuantity)} {unitLabel(product.unitType)}</td>
+              <td>{product.reorderPoint === null ? 'Not Configured' : count(product.reorderPoint)}</td>
+              <td>
+                <Badge variant={stockHealthVariants[product.stockHealth]}>
+                  {stockHealthLabels[product.stockHealth]}
+                </Badge>
+              </td>
+              <td>{reorderLabel(product)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function PredictiveSummary({
+  predictive,
+}: {
+  predictive: AdminDashboardResponse['predictive'];
+}) {
+  const primaryItems = [
+    { label: 'Critical', value: predictive.critical, variant: 'danger' as const },
+    { label: 'At Risk', value: predictive.atRisk, variant: 'warning' as const },
+    { label: 'Stable', value: predictive.stable, variant: 'success' as const },
+    { label: 'Forecast Required', value: predictive.forecastRequired, variant: 'info' as const },
+  ];
+  const secondaryItems = [
+    { label: 'Out of Stock', value: predictive.outOfStock, variant: 'danger' as const },
+    { label: 'No Demand', value: predictive.noDemand, variant: 'neutral' as const },
+    { label: 'Limited History', value: predictive.limitedHistory, variant: 'neutral' as const },
+  ];
+
+  return (
+    <div className="real-dashboard-predictive-summary" aria-label="Predictive inventory risk summary">
+      <div className="real-dashboard-predictive-counts">
+        {primaryItems.map((item) => (
+          <article key={item.label}>
+            <span>{item.label}</span>
+            <strong>{count(item.value)}</strong>
+            <Badge variant={item.variant}>{item.label}</Badge>
+          </article>
+        ))}
+      </div>
+      <div className="real-dashboard-predictive-support">
+        <article>
+          <span>Suggested Reorder Units</span>
+          <strong>{count(predictive.totalPredictiveReorderQuantity)}</strong>
+          <p>Total forecast-assisted recommendation across latest product forecasts.</p>
+        </article>
+        <div className="real-dashboard-predictive-badges">
+          {secondaryItems.map((item) => (
+            <span key={item.label}>
+              <Badge variant={item.variant}>{count(item.value)}</Badge>
+              {item.label}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function predictiveEmptyTitle(predictive: AdminDashboardResponse['predictive']) {
+  if (predictive.activeProducts === 0) {
+    return 'No active products are available for predictive analysis.';
+  }
+
+  if (predictive.forecastRequired === predictive.activeProducts) {
+    return 'Generate moving-average forecasts to view forecast-assisted inventory risk.';
+  }
+
+  if (predictive.noDemand > 0 && predictive.noDemand + predictive.stable === predictive.activeProducts) {
+    return 'No forecasted demand currently requires predictive attention.';
+  }
+
+  return 'No forecasted products currently require predictive attention.';
+}
+
+function PredictiveAttentionTable({
+  predictive,
+}: {
+  predictive: AdminDashboardResponse['predictive'];
+}) {
+  if (!predictive.attentionProducts.length) {
+    return <EmptyState title={predictiveEmptyTitle(predictive)} />;
+  }
+
+  return (
+    <div className="real-dashboard-table-wrap">
+      <table className="real-dashboard-table real-dashboard-table--predictive">
+        <thead>
+          <tr>
+            <th scope="col">Product</th>
+            <th scope="col">Current Stock</th>
+            <th scope="col">Forecast Risk</th>
+            <th scope="col">Avg. Daily Demand</th>
+            <th scope="col">Days Remaining</th>
+            <th scope="col">Estimated Stock-Out</th>
+            <th scope="col">Predictive Reorder</th>
+          </tr>
+        </thead>
+        <tbody>
+          {predictive.attentionProducts.map((product) => (
+            <tr key={product.productId}>
+              <td>
+                <strong>{product.name}</strong>
+                <span className="real-dashboard-table-subtext real-dashboard-mono">{product.sku}</span>
+              </td>
+              <td>{count(product.currentQuantity)}</td>
+              <td>
+                <div className="real-dashboard-risk-cell">
+                  <Badge variant={predictiveRiskVariants[product.risk]}>
+                    {predictiveRiskLabels[product.risk]}
+                  </Badge>
+                  {product.isLimitedHistory ? (
+                    <Badge variant="neutral">Limited History</Badge>
+                  ) : null}
+                </div>
+              </td>
+              <td>{formatDecimal(product.averageDailyDemand)}</td>
+              <td>{formatDecimal(product.daysOfStockRemaining, ' days')}</td>
+              <td>{product.estimatedStockoutDate ? formatDate(product.estimatedStockoutDate) : '-'}</td>
+              <td>
+                {product.predictiveReorderQuantity === null
+                  ? '-'
+                  : count(product.predictiveReorderQuantity)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DeliveryTable({ deliveries }: { deliveries: DashboardUpcomingDelivery[] }) {
+  if (!deliveries.length) {
+    return <EmptyState title="No upcoming purchase order deliveries in the next 7 days." />;
+  }
+
+  return (
+    <div className="real-dashboard-table-wrap">
+      <table className="real-dashboard-table">
+        <thead>
+          <tr>
+            <th scope="col">PO Number</th>
+            <th scope="col">Supplier</th>
+            <th scope="col">Status</th>
+            <th scope="col">Expected Delivery</th>
+            <th scope="col">Items</th>
+            <th scope="col">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {deliveries.map((delivery) => (
+            <tr key={delivery.id}>
+              <td><span className="real-dashboard-mono">{delivery.poNumber}</span></td>
+              <td>{delivery.supplier.name}</td>
+              <td><Badge variant="info">{humanizeEnum(delivery.status)}</Badge></td>
+              <td>{formatDate(delivery.expectedDeliveryDate)}</td>
+              <td>{count(delivery.itemCount)}</td>
+              <td>{money(delivery.subtotalCents)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function ActivityList({ activities }: { activities: DashboardRecentActivity[] }) {
+  if (!activities.length) {
+    return <EmptyState title="No recent system activity has been recorded yet." />;
+  }
+
+  return (
+    <ul className="real-dashboard-activity-list">
+      {activities.map((activity) => (
+        <li key={activity.id} className="real-dashboard-activity-item">
+          <div>
+            <div className="real-dashboard-activity-title">
+              <Badge variant="neutral">{humanizeEnum(activity.entityType)}</Badge>
+              <strong>{humanizeEnum(activity.operation || activity.action)}</strong>
+            </div>
+            <p>
+              {entityLabel(activity)} by {activity.actorDisplay}
+            </p>
+          </div>
+          <time dateTime={activity.createdAt}>{formatDateTime(activity.createdAt)}</time>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 export default function DashboardPage({ userEmail, onLogout, onNavigate }: DashboardPageProps) {
-  const [data, setData] = useState<DashboardData>({
-    products: [],
-    categories: [],
-    suppliers: [],
-  });
+  const [data, setData] = useState<AdminDashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState('');
   const initialLoadStarted = useRef(false);
 
-  const loadDashboardData = useCallback(async () => {
-    setLoading(true);
-    setError(false);
+  const loadDashboardData = useCallback(async (mode: 'initial' | 'refresh' = 'initial') => {
+    if (mode === 'refresh' && data) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setError('');
 
     try {
-      const [productsResponse, categoriesResponse, suppliersResponse] = await Promise.all([
-        fetchJson<{ products?: Product[] }>('/api/products'),
-        fetchJson<{ categories?: Category[] }>('/api/categories'),
-        fetchJson<{ suppliers?: Supplier[] }>('/api/suppliers'),
-      ]);
-
-      setData({
-        products: productsResponse.products ?? [],
-        categories: categoriesResponse.categories ?? [],
-        suppliers: suppliersResponse.suppliers ?? [],
+      const response = await fetch(`${API_URL}/api/dashboard/admin`, {
+        headers: authHeaders(),
       });
-    } catch {
-      setError(true);
+      if (!response.ok) {
+        throw new Error(await readDashboardError(response));
+      }
+      setData((await response.json()) as AdminDashboardResponse);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'Unable to load dashboard data.');
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }, []);
+  }, [data]);
 
   useEffect(() => {
-    if (initialLoadStarted.current) {
-      return;
-    }
+    if (initialLoadStarted.current) return;
 
     initialLoadStarted.current = true;
     void loadDashboardData();
   }, [loadDashboardData]);
 
-  const metrics = useMemo(() => {
-    const activeProducts = data.products.filter(
-      (product) => product.status === 'ACTIVE',
-    ).length;
+  const kpis = useMemo<KpiCard[]>(() => {
+    if (!data) return [];
 
     return [
       {
-        label: 'Total Products',
-        value: data.products.length,
-        helper: 'Products in the catalog',
+        label: "Today's Sales",
+        value: money(data.sales.todayRevenueCents),
+        helper: 'Completed sales today',
+        tone: 'success',
       },
       {
-        label: 'Active Products',
-        value: activeProducts,
-        helper: 'Available catalog records',
+        label: 'Transactions Today',
+        value: count(data.sales.todayTransactions),
+        helper: `Average ${money(data.sales.averageTransactionCents)} per transaction`,
+        tone: 'info',
       },
       {
-        label: 'Categories',
-        value: data.categories.length,
-        helper: 'Category records',
+        label: 'Low / Critical Stock',
+        value: count(data.inventory.low + data.inventory.critical),
+        helper: `Critical: ${count(data.inventory.critical)} / Low: ${count(data.inventory.low)}`,
+        tone: data.inventory.low + data.inventory.critical > 0 ? 'warning' : 'success',
       },
       {
-        label: 'Suppliers',
-        value: data.suppliers.length,
-        helper: 'Supplier records',
+        label: 'Out of Stock',
+        value: count(data.inventory.outOfStock),
+        helper: data.inventory.outOfStock > 0 ? 'Requires attention' : 'No items out of stock',
+        tone: data.inventory.outOfStock > 0 ? 'danger' : 'success',
+      },
+      {
+        label: 'Open Purchase Orders',
+        value: count(data.procurement.openPurchaseOrders),
+        helper: `Open PO value ${money(data.procurement.openPurchaseOrderValueCents)}`,
+        tone: 'neutral',
       },
     ];
-  }, [data.categories.length, data.products, data.suppliers.length]);
+  }, [data]);
 
-  const attentionItems = useMemo<AttentionItem[]>(() => {
-    const items = [
-      {
-        label: 'Draft Products',
-        count: data.products.filter((product) => product.status === 'DRAFT').length,
-        helper: 'Products not active yet',
-      },
-      {
-        label: 'Archived Categories',
-        count: data.categories.filter((category) => category.status === 'ARCHIVED').length,
-        helper: 'Categories outside active use',
-      },
-      {
-        label: 'Suppliers On Hold',
-        count: data.suppliers.filter((supplier) => supplier.status === 'ON_HOLD').length,
-        helper: 'Suppliers paused for review',
-      },
-      {
-        label: 'Inactive Suppliers',
-        count: data.suppliers.filter((supplier) => supplier.status === 'INACTIVE').length,
-        helper: 'Suppliers not currently active',
-      },
-    ];
-
-    return items.filter((item) => item.count > 0);
-  }, [data.categories, data.products, data.suppliers]);
-
-  const recentActivity = useMemo<ActivityItem[]>(() => {
-    const products = data.products.map((product) => ({
-      id: `product-${product.id}`,
-      type: 'Product' as const,
-      name: product.name,
-      status: product.status,
-      updatedAt: product.updatedAt,
-    }));
-
-    const categories = data.categories.map((category) => ({
-      id: `category-${category.id}`,
-      type: 'Category' as const,
-      name: category.name,
-      status: category.status,
-      updatedAt: category.updatedAt,
-    }));
-
-    const suppliers = data.suppliers.map((supplier) => ({
-      id: `supplier-${supplier.id}`,
-      type: 'Supplier' as const,
-      name: supplier.name,
-      status: supplier.status,
-      updatedAt: supplier.updatedAt,
-    }));
-
-    return [...products, ...categories, ...suppliers]
-      .sort(
-        (left, right) =>
-          new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
-      )
-      .slice(0, 8);
-  }, [data.categories, data.products, data.suppliers]);
-
-  const showLoadedContent = !loading && !error;
-  const showEmptyActivity = showLoadedContent && recentActivity.length === 0;
+  const showInitialLoading = loading && !data;
+  const showDashboard = Boolean(data) && !showInitialLoading;
 
   return (
     <AppShell
@@ -219,35 +493,41 @@ export default function DashboardPage({ userEmail, onLogout, onNavigate }: Dashb
         <PageHeader
           eyebrow="Operations overview"
           title="Dashboard"
-          description="Overview of your product catalog, categories, and suppliers."
+          description="Monitor sales, inventory, procurement, and recent business activity."
+          secondaryActions={
+            <Button
+              variant="secondary"
+              onClick={() => void loadDashboardData('refresh')}
+              disabled={showInitialLoading || refreshing}
+            >
+              {refreshing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          }
         />
 
-        {loading ? (
-          <section className="real-dashboard-loading" role="status" aria-live="polite">
-            <Spinner size="md" label="Loading dashboard data" />
-            <span>Loading dashboard data...</span>
-          </section>
-        ) : null}
+        {showInitialLoading ? <LoadingState refreshing={false} /> : null}
+        {refreshing ? <LoadingState refreshing /> : null}
 
-        {error && !loading ? (
-          <Alert variant="error" title="Unable to load dashboard data.">
-            Check your connection and try again.
-          </Alert>
-        ) : null}
-
-        {error && !loading ? (
-          <div className="real-dashboard-retry">
-            <Button variant="secondary" onClick={loadDashboardData}>
+        {error && !showInitialLoading ? (
+          <div className="real-dashboard-error">
+            <Alert variant="error" title="Unable to load dashboard data.">
+              {error}
+            </Alert>
+            <Button variant="secondary" onClick={() => void loadDashboardData(data ? 'refresh' : 'initial')}>
               Retry
             </Button>
           </div>
         ) : null}
 
-        {showLoadedContent ? (
+        {showDashboard && data ? (
           <>
-            <section className="real-dashboard-kpis" aria-label="Catalog summary">
-              {metrics.map((metric) => (
-                <Card key={metric.label} padding="compact" className="real-dashboard-kpi">
+            <section className="real-dashboard-kpis" aria-label="Primary operational metrics">
+              {kpis.map((metric) => (
+                <Card
+                  key={metric.label}
+                  padding="compact"
+                  className={`real-dashboard-kpi real-dashboard-kpi--${metric.tone}`}
+                >
                   <p>{metric.label}</p>
                   <strong>{metric.value}</strong>
                   <span>{metric.helper}</span>
@@ -255,85 +535,142 @@ export default function DashboardPage({ userEmail, onLogout, onNavigate }: Dashb
               ))}
             </section>
 
+            <Card padding="default" className="real-dashboard-sales">
+              <div className="real-dashboard-section-head">
+                <div>
+                  <p className="real-dashboard-kicker">Sales performance</p>
+                  <h2>7-Day Sales Trend</h2>
+                </div>
+                <span>Rolling 7 Manila calendar days</span>
+              </div>
+              <div className="real-dashboard-sales-grid">
+                <SalesTrendChart points={data.salesTrend} />
+                <div className="real-dashboard-secondary-metrics" aria-label="Secondary sales metrics">
+                  <article>
+                    <span>Rolling 7-Day Sales</span>
+                    <strong>{money(data.sales.weekRevenueCents)}</strong>
+                  </article>
+                  <article>
+                    <span>Current Month Sales</span>
+                    <strong>{money(data.sales.monthRevenueCents)}</strong>
+                  </article>
+                  <article>
+                    <span>Units Sold Today</span>
+                    <strong>{formatQuantity(data.sales.unitsSoldToday)}</strong>
+                  </article>
+                  <article>
+                    <span>Average Transaction</span>
+                    <strong>{money(data.sales.averageTransactionCents)}</strong>
+                  </article>
+                </div>
+              </div>
+            </Card>
+
             <div className="real-dashboard-grid">
-              <Card padding="default" className="real-dashboard-activity">
+              <Card padding="default" className="real-dashboard-inventory">
                 <div className="real-dashboard-section-head">
                   <div>
-                    <p className="real-dashboard-kicker">Catalog activity</p>
-                    <h2>Recent Catalog Activity</h2>
+                    <p className="real-dashboard-kicker">Inventory attention</p>
+                    <h2>Products Needing Attention</h2>
+                    <span>Based on current stock against configured reorder thresholds.</span>
                   </div>
-                  <span>{recentActivity.length} recent</span>
+                  {onNavigate ? (
+                    <Button variant="secondary" onClick={() => onNavigate('Inventory')}>
+                      View Inventory
+                    </Button>
+                  ) : null}
                 </div>
-
-                {showEmptyActivity ? (
-                  <EmptyState
-                    title="No recent catalog activity."
-                    description="Products, categories, and suppliers will appear here after they are updated."
-                  />
-                ) : (
-                  <ul className="real-dashboard-activity-list">
-                    {recentActivity.map((activity) => (
-                      <li key={activity.id} className="real-dashboard-activity-item">
-                        <div>
-                          <div className="real-dashboard-activity-title">
-                            <Badge variant="info">{activity.type}</Badge>
-                            <strong>{activity.name}</strong>
-                          </div>
-                          <p>Updated {formatDateTime(activity.updatedAt)}</p>
-                        </div>
-                        <Badge variant={statusBadgeVariant(activity.status)}>
-                          {statusLabel(activity.status)}
-                        </Badge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+                <StockHealthSummary inventory={data.inventory} />
+                <LowStockTable products={data.lowStockProducts} />
               </Card>
 
-              <Card padding="default" className="real-dashboard-attention">
+              <Card padding="default" className="real-dashboard-procurement">
                 <div className="real-dashboard-section-head">
                   <div>
-                    <p className="real-dashboard-kicker">Status review</p>
-                    <h2>Needs Attention</h2>
+                    <p className="real-dashboard-kicker">Procurement</p>
+                    <h2>Upcoming Deliveries</h2>
                   </div>
+                  {onNavigate ? (
+                    <Button variant="secondary" onClick={() => onNavigate('Purchase Orders')}>
+                      View Purchase Orders
+                    </Button>
+                  ) : null}
                 </div>
-
-                {attentionItems.length > 0 ? (
-                  <ul className="real-dashboard-attention-list">
-                    {attentionItems.map((item) => (
-                      <li key={item.label}>
-                        <div>
-                          <strong>{item.label}</strong>
-                          <p>{item.helper}</p>
-                        </div>
-                        <Badge variant="warning">{item.count}</Badge>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <EmptyState
-                    title="No catalog status items need attention."
-                    description="Draft products, archived categories, and paused suppliers are currently clear."
-                  />
-                )}
+                <div className="real-dashboard-procurement-summary" aria-label="Procurement summary">
+                  <article>
+                    <span>Open Purchase Orders</span>
+                    <strong>{count(data.procurement.openPurchaseOrders)}</strong>
+                  </article>
+                  <article>
+                    <span>Draft Purchase Orders</span>
+                    <strong>{count(data.procurement.draftPurchaseOrders)}</strong>
+                  </article>
+                  <article>
+                    <span>Partially Received</span>
+                    <strong>{count(data.procurement.partiallyReceived)}</strong>
+                  </article>
+                  <article title="Full subtotal value of ordered and partially received purchase orders.">
+                    <span>Open PO Value</span>
+                    <strong>{money(data.procurement.openPurchaseOrderValueCents)}</strong>
+                  </article>
+                </div>
+                <DeliveryTable deliveries={data.procurement.upcomingDeliveries} />
               </Card>
             </div>
+
+            <Card padding="default" className="real-dashboard-predictive">
+              <div className="real-dashboard-section-head">
+                <div>
+                  <p className="real-dashboard-kicker">Predictive inventory risk</p>
+                  <h2>Forecast-Assisted Inventory Outlook</h2>
+                  <span>Based on forecasted demand and current stock for active products.</span>
+                </div>
+                {onNavigate && data.predictive.forecastRequired > 0 ? (
+                  <Button variant="secondary" onClick={() => onNavigate('Forecasting')}>
+                    Open Predictive Analysis
+                  </Button>
+                ) : null}
+              </div>
+              <p className="real-dashboard-section-copy">
+                Forecast-assisted inventory outlook based on the latest moving-average forecast for each active product.
+              </p>
+              <PredictiveSummary predictive={data.predictive} />
+              <PredictiveAttentionTable predictive={data.predictive} />
+            </Card>
+
+            <Card padding="default" className="real-dashboard-activity">
+              <div className="real-dashboard-section-head">
+                <div>
+                  <p className="real-dashboard-kicker">Recent activity</p>
+                  <h2>System Activity</h2>
+                </div>
+                {onNavigate ? (
+                  <Button variant="secondary" onClick={() => onNavigate('Audit Logs')}>
+                    View Audit Logs
+                  </Button>
+                ) : null}
+              </div>
+              <ActivityList activities={data.recentActivity} />
+            </Card>
 
             {onNavigate ? (
               <Card padding="compact" className="real-dashboard-quick-nav">
                 <div>
-                  <p className="real-dashboard-kicker">Shortcuts</p>
-                  <h2>Quick Navigation</h2>
+                  <p className="real-dashboard-kicker">Actions</p>
+                  <h2>Operational Shortcuts</h2>
                 </div>
                 <div className="real-dashboard-quick-nav-actions">
-                  <Button variant="secondary" onClick={() => onNavigate('Products')}>
-                    Manage Products
+                  <Button variant="secondary" onClick={() => onNavigate('POS')}>
+                    Open POS
                   </Button>
-                  <Button variant="secondary" onClick={() => onNavigate('Categories')}>
-                    Manage Categories
+                  <Button variant="secondary" onClick={() => onNavigate('Inventory')}>
+                    View Inventory
                   </Button>
-                  <Button variant="secondary" onClick={() => onNavigate('Suppliers')}>
-                    Manage Suppliers
+                  <Button variant="secondary" onClick={() => onNavigate('Purchase Orders')}>
+                    Purchase Orders
+                  </Button>
+                  <Button variant="secondary" onClick={() => onNavigate('Forecasting')}>
+                    Predictive Analysis
                   </Button>
                 </div>
               </Card>

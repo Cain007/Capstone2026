@@ -1,17 +1,14 @@
 import type { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import {
+  AuditAction,
+  AuditEntityType,
+  AuditEventType,
+  Prisma,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { recordAuditEvent } from '../utils/audit.js';
 
-function toSupplierCode(value: string): string {
-  return value
-    .toUpperCase()
-    .trim()
-    .replace(/[^A-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 20) || 'SUP';
-}
-
-function serializeSupplier(supplier: {
+type SupplierRecord = {
   id: string;
   supplierCode: string;
   name: string;
@@ -29,7 +26,55 @@ function serializeSupplier(supplier: {
   notes: string | null;
   createdAt: Date;
   updatedAt: Date;
-}) {
+};
+
+type SupplierAuditField =
+  | 'supplierCode'
+  | 'name'
+  | 'legalName'
+  | 'status'
+  | 'email'
+  | 'phone'
+  | 'website'
+  | 'addressLine1'
+  | 'addressLine2'
+  | 'city'
+  | 'province'
+  | 'postalCode'
+  | 'country'
+  | 'notes';
+type SupplierAuditSnapshot = Record<SupplierAuditField, string | null>;
+
+const supplierSelect = {
+  id: true,
+  supplierCode: true,
+  name: true,
+  legalName: true,
+  status: true,
+  email: true,
+  phone: true,
+  website: true,
+  addressLine1: true,
+  addressLine2: true,
+  city: true,
+  province: true,
+  postalCode: true,
+  country: true,
+  notes: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+function toSupplierCode(value: string): string {
+  return value
+    .toUpperCase()
+    .trim()
+    .replace(/[^A-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 20) || 'SUP';
+}
+
+function serializeSupplier(supplier: SupplierRecord) {
   return {
     id: supplier.id,
     supplierCode: supplier.supplierCode,
@@ -51,6 +96,44 @@ function serializeSupplier(supplier: {
   };
 }
 
+function supplierAuditSnapshot(supplier: SupplierRecord): SupplierAuditSnapshot {
+  return {
+    supplierCode: supplier.supplierCode,
+    name: supplier.name,
+    legalName: supplier.legalName,
+    status: supplier.status,
+    email: supplier.email,
+    phone: supplier.phone,
+    website: supplier.website,
+    addressLine1: supplier.addressLine1,
+    addressLine2: supplier.addressLine2,
+    city: supplier.city,
+    province: supplier.province,
+    postalCode: supplier.postalCode,
+    country: supplier.country,
+    notes: supplier.notes,
+  };
+}
+
+function changedSupplierFields(
+  before: SupplierAuditSnapshot,
+  after: SupplierAuditSnapshot,
+): SupplierAuditField[] {
+  return (Object.keys(before) as SupplierAuditField[]).filter(
+    (field) => before[field] !== after[field],
+  );
+}
+
+function pickSupplierFields(
+  snapshot: SupplierAuditSnapshot,
+  fields: SupplierAuditField[],
+): Partial<SupplierAuditSnapshot> {
+  return fields.reduce<Partial<SupplierAuditSnapshot>>((selected, field) => {
+    selected[field] = snapshot[field];
+    return selected;
+  }, {});
+}
+
 function getSupplierId(request: Request): string {
   const raw = request.params.id;
   return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : '';
@@ -60,25 +143,7 @@ export async function listSuppliers(_request: Request, response: Response) {
   try {
     const suppliers = await prisma.supplier.findMany({
       orderBy: { name: 'asc' },
-      select: {
-        id: true,
-        supplierCode: true,
-        name: true,
-        legalName: true,
-        status: true,
-        email: true,
-        phone: true,
-        website: true,
-        addressLine1: true,
-        addressLine2: true,
-        city: true,
-        province: true,
-        postalCode: true,
-        country: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: supplierSelect,
     });
 
     response.json({ suppliers: suppliers.map(serializeSupplier) });
@@ -99,25 +164,7 @@ export async function getSupplier(request: Request, response: Response) {
   try {
     const supplier = await prisma.supplier.findUnique({
       where: { id },
-      select: {
-        id: true,
-        supplierCode: true,
-        name: true,
-        legalName: true,
-        status: true,
-        email: true,
-        phone: true,
-        website: true,
-        addressLine1: true,
-        addressLine2: true,
-        city: true,
-        province: true,
-        postalCode: true,
-        country: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+      select: supplierSelect,
     });
 
     if (!supplier) {
@@ -203,44 +250,46 @@ export async function createSupplier(request: Request, response: Response) {
     typeof request.body?.notes === 'string'
       ? request.body.notes.trim()
       : null;
+  const actorUserId = request.authUser?.id ?? null;
 
   try {
-    const supplier = await prisma.supplier.create({
-      data: {
-        supplierCode,
-        name,
-        legalName: legalName ?? undefined,
-        status: status ?? undefined,
-        email: email ?? undefined,
-        phone: phone ?? undefined,
-        website: website ?? undefined,
-        addressLine1: addressLine1 ?? undefined,
-        addressLine2: addressLine2 ?? undefined,
-        city: city ?? undefined,
-        province: province ?? undefined,
-        postalCode: postalCode ?? undefined,
-        country,
-        notes: notes ?? undefined,
-      },
-      select: {
-        id: true,
-        supplierCode: true,
-        name: true,
-        legalName: true,
-        status: true,
-        email: true,
-        phone: true,
-        website: true,
-        addressLine1: true,
-        addressLine2: true,
-        city: true,
-        province: true,
-        postalCode: true,
-        country: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const supplier = await prisma.$transaction(async (transaction) => {
+      const createdSupplier = await transaction.supplier.create({
+        data: {
+          supplierCode,
+          name,
+          legalName: legalName ?? undefined,
+          status: status ?? undefined,
+          email: email ?? undefined,
+          phone: phone ?? undefined,
+          website: website ?? undefined,
+          addressLine1: addressLine1 ?? undefined,
+          addressLine2: addressLine2 ?? undefined,
+          city: city ?? undefined,
+          province: province ?? undefined,
+          postalCode: postalCode ?? undefined,
+          country,
+          notes: notes ?? undefined,
+        },
+        select: supplierSelect,
+      });
+
+      await recordAuditEvent(
+        {
+          request,
+          eventType: AuditEventType.ADMIN_ACTION,
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.SUPPLIER,
+          entityId: createdSupplier.id,
+          entityLabel: createdSupplier.name,
+          actorUserId,
+          after: supplierAuditSnapshot(createdSupplier),
+          metadata: { operation: 'SUPPLIER_CREATED' },
+        },
+        transaction,
+      );
+
+      return createdSupplier;
     });
 
     response.status(201).json({ supplier: serializeSupplier(supplier) });
@@ -346,30 +395,54 @@ export async function updateSupplier(request: Request, response: Response) {
     return;
   }
 
+  const actorUserId = request.authUser?.id ?? null;
+
   try {
-    const supplier = await prisma.supplier.update({
-      where: { id },
-      data: updateData,
-      select: {
-        id: true,
-        supplierCode: true,
-        name: true,
-        legalName: true,
-        status: true,
-        email: true,
-        phone: true,
-        website: true,
-        addressLine1: true,
-        addressLine2: true,
-        city: true,
-        province: true,
-        postalCode: true,
-        country: true,
-        notes: true,
-        createdAt: true,
-        updatedAt: true,
-      },
+    const supplier = await prisma.$transaction(async (transaction) => {
+      const existingSupplier = await transaction.supplier.findUnique({
+        where: { id },
+        select: supplierSelect,
+      });
+
+      if (!existingSupplier) return null;
+
+      const before = supplierAuditSnapshot(existingSupplier);
+      const updatedSupplier = await transaction.supplier.update({
+        where: { id },
+        data: updateData,
+        select: supplierSelect,
+      });
+      const after = supplierAuditSnapshot(updatedSupplier);
+      const changedFields = changedSupplierFields(before, after);
+
+      if (changedFields.length > 0) {
+        await recordAuditEvent(
+          {
+            request,
+            eventType: AuditEventType.ADMIN_ACTION,
+            action: AuditAction.UPDATE,
+            entityType: AuditEntityType.SUPPLIER,
+            entityId: updatedSupplier.id,
+            entityLabel: updatedSupplier.name,
+            actorUserId,
+            before: pickSupplierFields(before, changedFields),
+            after: pickSupplierFields(after, changedFields),
+            metadata: {
+              operation: 'SUPPLIER_UPDATED',
+              changedFields,
+            },
+          },
+          transaction,
+        );
+      }
+
+      return updatedSupplier;
     });
+
+    if (!supplier) {
+      response.status(404).json({ message: 'Supplier not found' });
+      return;
+    }
 
     response.json({ supplier: serializeSupplier(supplier) });
   } catch (error) {
@@ -387,7 +460,38 @@ export async function deleteSupplier(request: Request, response: Response) {
   }
 
   try {
-    await prisma.supplier.delete({ where: { id } });
+    const deletedSupplier = await prisma.$transaction(async (transaction) => {
+      const supplier = await transaction.supplier.findUnique({
+        where: { id },
+        select: supplierSelect,
+      });
+
+      if (!supplier) return null;
+
+      await transaction.supplier.delete({ where: { id } });
+      await recordAuditEvent(
+        {
+          request,
+          eventType: AuditEventType.ADMIN_ACTION,
+          action: AuditAction.DELETE,
+          entityType: AuditEntityType.SUPPLIER,
+          entityId: supplier.id,
+          entityLabel: supplier.name,
+          actorUserId: request.authUser?.id ?? null,
+          before: supplierAuditSnapshot(supplier),
+          metadata: { operation: 'SUPPLIER_DELETED' },
+        },
+        transaction,
+      );
+
+      return supplier;
+    });
+
+    if (!deletedSupplier) {
+      response.status(404).json({ message: 'Supplier not found' });
+      return;
+    }
+
     response.status(204).send();
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

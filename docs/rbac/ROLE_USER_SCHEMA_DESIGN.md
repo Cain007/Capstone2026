@@ -43,13 +43,13 @@ The actual full schema is in `backend/prisma/schema.prisma`.
 
 ## Rationale
 
-`Role` is a table, not an enum, so Admin, Manager, Staff, Viewer, and future roles can be managed from an admin screen without a schema migration.
+`Role` is a table, not an enum. The current application supports the `Admin` and `Staff` roles.
 
 `RoleStatus` is an enum because role lifecycle states should be controlled and predictable.
 
 `User.roleId` is required. A user without a role is invalid in an RBAC system because access checks must always resolve to exactly one role.
 
-The default role is assigned at the application level. Current signup assigns `Staff` by default using `DEFAULT_SIGNUP_ROLE_NAME`, and the seed script creates the starting roles.
+Accounts are created by administrators. The current application has no public signup flow. The seed script creates the starting roles, and optional demo seed mode can create demo users from environment-provided credentials.
 
 `createdById` and `updatedById` are included on `Role` because role changes are security-sensitive admin actions. They use `SetNull` so losing a user account never cascades or blocks deletion.
 
@@ -82,9 +82,7 @@ Deleting a `Role` never cascade-deletes `User` records. Because `User.roleId` is
 Seeded roles:
 
 - `Admin`
-- `Manager`
 - `Staff`
-- `Viewer`
 
 Run:
 
@@ -93,13 +91,13 @@ cd D:\Capstone\backend
 npm run prisma:seed
 ```
 
-Application signup uses `DEFAULT_SIGNUP_ROLE_NAME`, defaulting to `Staff`.
+There is no public signup route. Staff accounts are created from User Management by an Admin.
 
 ## Migration Note For Existing Users
 
 Because `User.roleId` is required, migrating an existing database that already has users must be done with a backfill:
 
-1. Create the `Role` table and seed `Admin`, `Manager`, `Staff`, and `Viewer`.
+1. Create the `Role` table and seed `Admin` and `Staff`.
 2. Backfill all existing users to a chosen default role, normally `Staff` or `Admin` for the first owner account.
 3. Add the non-null `User.roleId` constraint and the `Restrict` foreign key.
 

@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import Dashboard from './pages/dashboard';
 import Login from './pages/login';
+import PasswordChange from './pages/password-change';
 import type { AuthResponse, User } from './types/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [defaultRoute, setDefaultRoute] = useState<AuthResponse['defaultRoute']>('Dashboard');
   const [initialToken] = useState(
     () =>
       localStorage.getItem('auth_token') ||
@@ -30,12 +32,16 @@ function App() {
           throw new Error('Session expired');
         }
 
-        return (await response.json()) as { user: User };
+        return (await response.json()) as Omit<AuthResponse, 'token'>;
       })
-      .then((data) => setUser(data.user))
+      .then((data) => {
+        setUser(data.user);
+        setDefaultRoute(data.defaultRoute);
+      })
       .catch(() => {
         localStorage.removeItem('auth_token');
         sessionStorage.removeItem('auth_token');
+        setDefaultRoute('Dashboard');
       })
       .finally(() => setIsCheckingSession(false));
   }, [initialToken]);
@@ -47,20 +53,41 @@ function App() {
     storage.setItem('auth_token', auth.token);
     otherStorage.removeItem('auth_token');
     setUser(auth.user);
+    setDefaultRoute(auth.defaultRoute);
   };
 
   const handleLogout = () => {
     localStorage.removeItem('auth_token');
     sessionStorage.removeItem('auth_token');
     setUser(null);
+    setDefaultRoute('Dashboard');
+  };
+
+  const handlePasswordChanged = (
+    updatedUser: User,
+    updatedDefaultRoute: AuthResponse['defaultRoute'],
+  ) => {
+    setUser(updatedUser);
+    setDefaultRoute(updatedDefaultRoute);
   };
 
   if (isCheckingSession) {
     return <main className="session-loading">Loading your account...</main>;
   }
 
-  return user ? (
-    <Dashboard user={user} onLogout={handleLogout} />
+  return user ? user.mustChangePassword ? (
+    <PasswordChange
+      user={user}
+      onChanged={handlePasswordChanged}
+      onLogout={handleLogout}
+    />
+  ) : (
+    <Dashboard
+      user={user}
+      defaultRoute={defaultRoute}
+      onLogout={handleLogout}
+      onUserUpdated={setUser}
+    />
   ) : (
     <Login onAuthenticated={handleAuthenticated} />
   );

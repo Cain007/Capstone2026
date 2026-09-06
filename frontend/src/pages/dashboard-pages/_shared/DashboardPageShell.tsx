@@ -1,18 +1,23 @@
 import './styles.css';
 import PageHeader from '../../../components/PageHeader';
 import AppShell from '../../../layouts/AppShell';
+import type { UserRole } from '../../../types/auth';
 
 export type DashboardPageName =
   | 'Dashboard'
   | 'Products'
   | 'Categories'
   | 'Suppliers'
+  | 'Purchase Orders'
   | 'Inventory'
+  | 'Stock Movements'
   | 'Sales History'
   | 'Forecasting'
   | 'Reports'
   | 'User Management'
-  | 'Settings';
+  | 'Audit Logs'
+  | 'Account & System'
+  | 'POS';
 
 type Metric = {
   label: string;
@@ -36,6 +41,8 @@ type DashboardPageShellProps = {
   rows: Row[];
   actionLabel: string;
   userEmail?: string;
+  userRole?: UserRole;
+  userDisplayName?: string;
   onLogout?: () => void;
   onNavigate?: (page: DashboardPageName) => void;
   onAction?: () => void;
@@ -48,12 +55,16 @@ const pageClassNames: Record<DashboardPageName, string> = {
   Products: 'dashboard-page--products',
   Categories: 'dashboard-page--categories',
   Suppliers: 'dashboard-page--suppliers',
+  'Purchase Orders': 'dashboard-page--purchase-orders',
   Inventory: 'dashboard-page--inventory',
+  'Stock Movements': 'dashboard-page--stock-movements',
   'Sales History': 'dashboard-page--sales-history',
   Forecasting: 'dashboard-page--forecasting',
   Reports: 'dashboard-page--reports',
   'User Management': 'dashboard-page--user-management',
-  Settings: 'dashboard-page--settings',
+  'Audit Logs': 'dashboard-page--audit-logs',
+  'Account & System': 'dashboard-page--settings',
+  POS: 'dashboard-page--pos',
 };
 
 export function DashboardPageShell({
@@ -65,6 +76,8 @@ export function DashboardPageShell({
   rows,
   actionLabel,
   userEmail,
+  userRole,
+  userDisplayName,
   onLogout,
   onNavigate,
   onAction,
@@ -75,6 +88,8 @@ export function DashboardPageShell({
     <AppShell
       activePage={activePage}
       userEmail={userEmail}
+      userRole={userRole}
+      userDisplayName={userDisplayName}
       onLogout={onLogout}
       onNavigate={onNavigate}
       className={`dashboard-page ${pageClassNames[activePage]}`}

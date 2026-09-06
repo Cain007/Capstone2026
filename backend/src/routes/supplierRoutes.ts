@@ -6,11 +6,12 @@ import {
   listSuppliers,
   updateSupplier,
 } from '../controllers/supplierController.js';
+import { requireRole } from '../middleware/authMiddleware.js';
 
 export const supplierRouter = Router();
 
-supplierRouter.get('/', listSuppliers);
-supplierRouter.get('/:id', getSupplier);
-supplierRouter.post('/', createSupplier);
-supplierRouter.put('/:id', updateSupplier);
-supplierRouter.delete('/:id', deleteSupplier);
+supplierRouter.get('/', requireRole('Admin'), listSuppliers);
+supplierRouter.get('/:id', requireRole('Admin'), getSupplier);
+supplierRouter.post('/', requireRole('Admin'), createSupplier);
+supplierRouter.put('/:id', requireRole('Admin'), updateSupplier);
+supplierRouter.delete('/:id', requireRole('Admin'), deleteSupplier);

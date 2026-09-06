@@ -1,16 +1,14 @@
 import type { Request, Response } from 'express';
-import { Prisma } from '@prisma/client';
+import {
+  AuditAction,
+  AuditEntityType,
+  AuditEventType,
+  Prisma,
+} from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
+import { recordAuditEvent } from '../utils/audit.js';
 
-function toSlug(value: string): string {
-  return value
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function serializeProduct(product: {
+type ProductRecord = {
   id: string;
   sku: string;
   slug: string;
@@ -20,6 +18,7 @@ function serializeProduct(product: {
   unitType: string;
   price: unknown;
   cost: unknown;
+  reorderPoint: number | null;
   categoryId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -29,7 +28,41 @@ function serializeProduct(product: {
     slug: string;
     status: string;
   };
-}) {
+};
+
+type ProductAuditField =
+  | 'sku'
+  | 'slug'
+  | 'name'
+  | 'description'
+  | 'status'
+  | 'unitType'
+  | 'price'
+  | 'cost'
+  | 'reorderPoint'
+  | 'categoryId';
+type ProductAuditSnapshot = Record<ProductAuditField, string | number | null>;
+
+const productInclude = {
+  category: {
+    select: {
+      id: true,
+      name: true,
+      slug: true,
+      status: true,
+    },
+  },
+} as const;
+
+function toSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function serializeProduct(product: ProductRecord) {
   return {
     id: product.id,
     sku: product.sku,
@@ -40,6 +73,7 @@ function serializeProduct(product: {
     unitType: product.unitType,
     price: product.price,
     cost: product.cost,
+    reorderPoint: product.reorderPoint,
     categoryId: product.categoryId,
     category: product.category,
     createdAt: product.createdAt,
@@ -47,25 +81,87 @@ function serializeProduct(product: {
   };
 }
 
+function decimalToString(value: unknown) {
+  if (value === null || value === undefined) return null;
+  if (
+    typeof value === 'object' &&
+    'toFixed' in value &&
+    typeof value.toFixed === 'function'
+  ) {
+    return value.toFixed(2);
+  }
+
+  return String(value);
+}
+
+function productAuditSnapshot(product: ProductRecord): ProductAuditSnapshot {
+  return {
+    sku: product.sku,
+    slug: product.slug,
+    name: product.name,
+    description: product.description,
+    status: product.status,
+    unitType: product.unitType,
+    price: decimalToString(product.price),
+    cost: decimalToString(product.cost),
+    reorderPoint: product.reorderPoint,
+    categoryId: product.categoryId,
+  };
+}
+
+function changedProductFields(
+  before: ProductAuditSnapshot,
+  after: ProductAuditSnapshot,
+): ProductAuditField[] {
+  return (Object.keys(before) as ProductAuditField[]).filter(
+    (field) => before[field] !== after[field],
+  );
+}
+
+function pickProductFields(
+  snapshot: ProductAuditSnapshot,
+  fields: ProductAuditField[],
+): Partial<ProductAuditSnapshot> {
+  return fields.reduce<Partial<ProductAuditSnapshot>>((selected, field) => {
+    selected[field] = snapshot[field];
+    return selected;
+  }, {});
+}
+
+function productEntityLabel(product: ProductRecord) {
+  return `${product.sku} - ${product.name}`;
+}
+
 function getProductId(request: Request): string {
   const raw = request.params.id;
   return typeof raw === 'string' ? raw : Array.isArray(raw) ? raw[0] : '';
+}
+
+type ReorderPointReadResult =
+  | { ok: true; value: number | null | undefined }
+  | { ok: false };
+
+function readOptionalReorderPoint(value: unknown): ReorderPointReadResult {
+  if (value === undefined) {
+    return { ok: true as const, value: undefined };
+  }
+
+  if (value === null) {
+    return { ok: true as const, value: null };
+  }
+
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) {
+    return { ok: true as const, value };
+  }
+
+  return { ok: false as const };
 }
 
 export async function listProducts(_request: Request, response: Response) {
   try {
     const products = await prisma.product.findMany({
       orderBy: { name: 'asc' },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-          },
-        },
-      },
+      include: productInclude,
     });
 
     response.json({ products: products.map(serializeProduct) });
@@ -86,16 +182,7 @@ export async function getProduct(request: Request, response: Response) {
   try {
     const product = await prisma.product.findUnique({
       where: { id },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-          },
-        },
-      },
+      include: productInclude,
     });
 
     if (!product) {
@@ -168,31 +255,53 @@ export async function createProduct(request: Request, response: Response) {
     }
   }
 
+  const reorderPoint = readOptionalReorderPoint(request.body?.reorderPoint);
+  if (!reorderPoint.ok) {
+    response.status(400).json({ message: 'Reorder point must be a non-negative integer or null' });
+    return;
+  }
+
   const slug = toSlug(name);
+  const actorUserId = request.authUser?.id ?? null;
 
   try {
-    const product = await prisma.product.create({
-      data: {
-        name,
-        slug,
-        sku,
-        description: description ?? undefined,
-        status: status ?? undefined,
-        unitType: unitType ?? undefined,
-        price,
-        cost,
-        categoryId,
-      },
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-          },
+    const product = await prisma.$transaction(async (transaction) => {
+      const createdProduct = await transaction.product.create({
+        data: {
+          name,
+          slug,
+          sku,
+          description: description ?? undefined,
+          status: status ?? undefined,
+          unitType: unitType ?? undefined,
+          price,
+          cost,
+          reorderPoint: reorderPoint.value,
+          categoryId,
         },
-      },
+        include: productInclude,
+      });
+
+      await transaction.stockLevel.create({
+        data: { productId: createdProduct.id, currentQuantity: 0 },
+      });
+
+      await recordAuditEvent(
+        {
+          request,
+          eventType: AuditEventType.ADMIN_ACTION,
+          action: AuditAction.CREATE,
+          entityType: AuditEntityType.PRODUCT,
+          entityId: createdProduct.id,
+          entityLabel: productEntityLabel(createdProduct),
+          actorUserId,
+          after: productAuditSnapshot(createdProduct),
+          metadata: { operation: 'PRODUCT_CREATED' },
+        },
+        transaction,
+      );
+
+      return createdProduct;
     });
 
     response.status(201).json({ product: serializeProduct(product) });
@@ -266,6 +375,12 @@ export async function updateProduct(request: Request, response: Response) {
     }
   }
 
+  const reorderPoint = readOptionalReorderPoint(request.body?.reorderPoint);
+  if (!reorderPoint.ok) {
+    response.status(400).json({ message: 'Reorder point must be a non-negative integer or null' });
+    return;
+  }
+
   const categoryId =
     typeof request.body?.categoryId === 'string' ? request.body.categoryId.trim() : undefined;
 
@@ -281,6 +396,7 @@ export async function updateProduct(request: Request, response: Response) {
   if (unitType !== undefined) updateData.unitType = unitType;
   if (price !== undefined) updateData.price = price;
   if (cost !== undefined) updateData.cost = cost;
+  if (reorderPoint.value !== undefined) updateData.reorderPoint = reorderPoint.value;
   if (categoryId !== undefined) updateData.categoryId = categoryId;
 
   if (Object.keys(updateData).length === 0) {
@@ -288,21 +404,54 @@ export async function updateProduct(request: Request, response: Response) {
     return;
   }
 
+  const actorUserId = request.authUser?.id ?? null;
+
   try {
-    const product = await prisma.product.update({
-      where: { id },
-      data: updateData,
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
+    const product = await prisma.$transaction(async (transaction) => {
+      const existingProduct = await transaction.product.findUnique({
+        where: { id },
+        include: productInclude,
+      });
+
+      if (!existingProduct) return null;
+
+      const before = productAuditSnapshot(existingProduct);
+      const updatedProduct = await transaction.product.update({
+        where: { id },
+        data: updateData,
+        include: productInclude,
+      });
+      const after = productAuditSnapshot(updatedProduct);
+      const changedFields = changedProductFields(before, after);
+
+      if (changedFields.length > 0) {
+        await recordAuditEvent(
+          {
+            request,
+            eventType: AuditEventType.ADMIN_ACTION,
+            action: AuditAction.UPDATE,
+            entityType: AuditEntityType.PRODUCT,
+            entityId: updatedProduct.id,
+            entityLabel: productEntityLabel(updatedProduct),
+            actorUserId,
+            before: pickProductFields(before, changedFields),
+            after: pickProductFields(after, changedFields),
+            metadata: {
+              operation: 'PRODUCT_UPDATED',
+              changedFields,
+            },
           },
-        },
-      },
+          transaction,
+        );
+      }
+
+      return updatedProduct;
     });
+
+    if (!product) {
+      response.status(404).json({ message: 'Product not found' });
+      return;
+    }
 
     response.json({ product: serializeProduct(product) });
   } catch (error) {
@@ -344,7 +493,38 @@ export async function deleteProduct(request: Request, response: Response) {
   }
 
   try {
-    await prisma.product.delete({ where: { id } });
+    const deletedProduct = await prisma.$transaction(async (transaction) => {
+      const product = await transaction.product.findUnique({
+        where: { id },
+        include: productInclude,
+      });
+
+      if (!product) return null;
+
+      await transaction.product.delete({ where: { id } });
+      await recordAuditEvent(
+        {
+          request,
+          eventType: AuditEventType.ADMIN_ACTION,
+          action: AuditAction.DELETE,
+          entityType: AuditEntityType.PRODUCT,
+          entityId: product.id,
+          entityLabel: productEntityLabel(product),
+          actorUserId: request.authUser?.id ?? null,
+          before: productAuditSnapshot(product),
+          metadata: { operation: 'PRODUCT_DELETED' },
+        },
+        transaction,
+      );
+
+      return product;
+    });
+
+    if (!deletedProduct) {
+      response.status(404).json({ message: 'Product not found' });
+      return;
+    }
+
     response.status(204).send();
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -379,4 +559,3 @@ export async function deleteProduct(request: Request, response: Response) {
     response.status(500).json({ message: 'Unable to delete product' });
   }
 }
-

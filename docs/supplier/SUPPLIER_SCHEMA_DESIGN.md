@@ -156,7 +156,6 @@ Caching is not needed at this stage because the capstone dataset should be small
 
 The safer choice is the purchase-order-based design, which is what was implemented. A supplier-only model would be simpler for CRUD, but it cannot honestly support delayed purchase-order counts or average lead time from real data.
 
-The schema does not include purchase-order line items yet. That avoids a premature dependency on future `Product` and `Inventory` models. When product management is implemented, add `PurchaseOrderItem` with optional historical fields such as ordered quantity, received quantity, and unit cost.
+Current implementation includes `PurchaseOrderItem` with ordered quantity, received quantity, unit cost, line total, and product snapshots. Purchase-order receiving links items to inventory receipt movements.
 
 The primary contact rule is represented with `isPrimary` instead of a circular `Supplier.primaryContactId` relation. This keeps the model clean and avoids a dependency loop, with the tradeoff that a partial unique index or service-level transaction is needed to enforce one primary contact per supplier.
-

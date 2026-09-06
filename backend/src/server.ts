@@ -6,6 +6,15 @@ import { authRouter } from './routes/authRoutes.js';
 import { categoryRouter } from './routes/categoryRoutes.js';
 import { supplierRouter } from './routes/supplierRoutes.js';
 import { productRouter } from './routes/productRoutes.js';
+import { userRouter } from './routes/userRoutes.js';
+import { inventoryRouter } from './routes/inventoryRoutes.js';
+import { salesRouter } from './routes/salesRoutes.js';
+import { forecastRouter } from './routes/forecastRoutes.js';
+import { purchaseOrderRouter } from './routes/purchaseOrderRoutes.js';
+import { auditRouter } from './routes/auditRoutes.js';
+import { securityRouter } from './routes/securityRoutes.js';
+import { dashboardRouter } from './routes/dashboardRoutes.js';
+import { reportRouter } from './routes/reportRoutes.js';
 import { requireAuth } from './middleware/authMiddleware.js';
 
 const app = express();
@@ -23,6 +32,15 @@ app.use('/api/auth', authRouter);
 app.use('/api/categories', requireAuth, categoryRouter);
 app.use('/api/suppliers', requireAuth, supplierRouter);
 app.use('/api/products', requireAuth, productRouter);
+app.use('/api/users', userRouter);
+app.use('/api/inventory', requireAuth, inventoryRouter);
+app.use('/api/sales', requireAuth, salesRouter);
+app.use('/api/forecasts', requireAuth, forecastRouter);
+app.use('/api/purchase-orders', requireAuth, purchaseOrderRouter);
+app.use('/api/audit-events', requireAuth, auditRouter);
+app.use('/api/security', requireAuth, securityRouter);
+app.use('/api/dashboard', requireAuth, dashboardRouter);
+app.use('/api/reports', requireAuth, reportRouter);
 
 app.use((_request, response) => {
   response.status(404).json({ message: 'Route not found' });

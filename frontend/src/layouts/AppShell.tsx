@@ -1,11 +1,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Button from '../components/ui/Button';
+import type { UserRole } from '../types/auth';
 import type { DashboardPageName } from '../pages/dashboard-pages/_shared/DashboardPageShell';
 import './app-shell.css';
 
 type AppShellProps = {
   activePage: DashboardPageName;
   userEmail?: string;
+  userRole?: UserRole;
+  userDisplayName?: string;
   onLogout?: () => void;
   onNavigate?: (page: DashboardPageName) => void;
   className?: string;
@@ -15,25 +18,21 @@ type AppShellProps = {
 type NavGroup = {
   label: string;
   items: DashboardPageName[];
+  roles?: UserRole[];
 };
 
 const navigationGroups: NavGroup[] = [
-  { label: 'Main', items: ['Dashboard'] },
-  { label: 'Catalog', items: ['Products', 'Categories', 'Suppliers'] },
-  { label: 'Operations', items: ['Inventory', 'Sales History'] },
-  { label: 'Planning', items: ['Forecasting', 'Reports'] },
-  { label: 'Administration', items: ['User Management', 'Settings'] },
+  { label: 'Main', items: ['Dashboard'], roles: ['Admin'] },
+  { label: 'Catalog', items: ['Products', 'Categories'], roles: ['Admin'] },
+  { label: 'Procurement', items: ['Suppliers', 'Purchase Orders'], roles: ['Admin'] },
+  { label: 'Operations', items: ['Inventory', 'Stock Movements', 'Sales History'], roles: ['Admin'] },
+  { label: 'Planning', items: ['Forecasting', 'Reports'], roles: ['Admin'] },
+  { label: 'Administration', items: ['User Management', 'Audit Logs', 'Account & System'], roles: ['Admin'] },
+  { label: 'Point of Sale', items: ['POS'], roles: ['Staff'] },
+  { label: 'Transactions', items: ['Sales History'], roles: ['Staff'] },
+  { label: 'Inventory', items: ['Products', 'Categories'], roles: ['Staff'] },
+  { label: 'Account', items: ['Account & System'], roles: ['Staff'] },
 ];
-
-const sectionByPage = navigationGroups.reduce<Record<DashboardPageName, string>>(
-  (sections, group) => {
-    group.items.forEach((item) => {
-      sections[item] = group.label;
-    });
-    return sections;
-  },
-  {} as Record<DashboardPageName, string>,
-);
 
 function classNames(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(' ');
@@ -62,6 +61,14 @@ function NavIcon({ page }: { page: DashboardPageName }) {
           <rect x="3" y="14" width="7" height="7" />
         </svg>
       );
+    case 'POS':
+      return (
+        <svg {...commonProps}>
+          <path d="M4 6h16v12H4Z" />
+          <path d="M8 10h8" />
+          <path d="M8 14h5" />
+        </svg>
+      );
     case 'Products':
       return (
         <svg {...commonProps}>
@@ -88,12 +95,33 @@ function NavIcon({ page }: { page: DashboardPageName }) {
           <circle cx="17" cy="19" r="2" />
         </svg>
       );
+    case 'Purchase Orders':
+      return (
+        <svg {...commonProps}>
+          <path d="M6 3h9l3 3v15H6Z" />
+          <path d="M14 3v4h4" />
+          <path d="M9 12h6" />
+          <path d="M9 16h4" />
+          <path d="M4 7h2" />
+          <path d="M4 11h2" />
+          <path d="M4 15h2" />
+        </svg>
+      );
     case 'Inventory':
       return (
         <svg {...commonProps}>
           <path d="M4 4h16v5H4Z" />
           <path d="M6 9v11h12V9" />
           <path d="M9 13h6" />
+        </svg>
+      );
+    case 'Stock Movements':
+      return (
+        <svg {...commonProps}>
+          <path d="M4 6h16" />
+          <path d="M4 12h10" />
+          <path d="M4 18h16" />
+          <circle cx="18" cy="12" r="2" />
         </svg>
       );
     case 'Sales History':
@@ -132,7 +160,17 @@ function NavIcon({ page }: { page: DashboardPageName }) {
           <path d="M18.5 8.5v5" />
         </svg>
       );
-    case 'Settings':
+    case 'Audit Logs':
+      return (
+        <svg {...commonProps}>
+          <path d="M6 3h12v18H6Z" />
+          <path d="M9 7h6" />
+          <path d="M9 11h6" />
+          <path d="M9 15h4" />
+          <path d="M17 18.5 19 21" />
+        </svg>
+      );
+    case 'Account & System':
       return (
         <svg {...commonProps}>
           <circle cx="12" cy="12" r="3" />
@@ -150,6 +188,8 @@ function NavIcon({ page }: { page: DashboardPageName }) {
 export default function AppShell({
   activePage,
   userEmail,
+  userRole = 'Admin',
+  userDisplayName,
   onLogout,
   onNavigate,
   className,
@@ -157,7 +197,10 @@ export default function AppShell({
 }: AppShellProps) {
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [isMobileNav, setIsMobileNav] = useState(false);
-  const activeSection = sectionByPage[activePage];
+  const visibleGroups = navigationGroups.filter(
+    (group) => !group.roles || group.roles.includes(userRole),
+  );
+  const activeSection = visibleGroups.find((group) => group.items.includes(activePage))?.label ?? '';
   const isNavHidden = isMobileNav && !isNavOpen;
 
   useEffect(() => {
@@ -219,7 +262,7 @@ export default function AppShell({
         </div>
 
         <nav className="app-shell__nav" aria-label="Dashboard sections">
-          {navigationGroups.map((group) => (
+          {visibleGroups.map((group) => (
             <section className="app-shell__nav-group" key={group.label}>
               <h2 className="app-shell__nav-label">{group.label}</h2>
               <ul className="app-shell__nav-list">
@@ -284,11 +327,12 @@ export default function AppShell({
 
           {userEmail || onLogout ? (
             <div className="app-shell__user-area">
-              {userEmail ? (
+              {userDisplayName || userEmail ? (
                 <span className="app-shell__user-email" title={userEmail}>
-                  {userEmail}
+                  {userDisplayName || userEmail}
                 </span>
               ) : null}
+              <span className="app-shell__user-role">{userRole}</span>
               {onLogout ? (
                 <Button variant="secondary" onClick={onLogout}>
                   Log out
