@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  Banknote,
+  Check,
+  Minus,
+  Plus,
+  ReceiptText,
+  Search,
+  ShoppingCart,
+  Trash2,
+} from 'lucide-react';
+import PageHeader from '../../../components/PageHeader';
+import ProductImage from '../../../components/product/ProductImage';
+import { BentoCard } from '../../../components/layout';
+import {
   Alert,
-  Badge,
   Button,
-  Card,
   EmptyState,
   Input,
   Select,
@@ -279,42 +290,45 @@ export default function PosPage({ userEmail, userRole, onLogout, onNavigate }: P
   return (
     <AppShell activePage="POS" userEmail={userEmail} userRole={userRole} onLogout={onLogout} onNavigate={onNavigate} className="dashboard-page dashboard-page--pos">
       <section className="pos-page" aria-label="Point of Sale workspace">
-        <header className="pos-page__header">
-          <div>
-            <p className="pos-eyebrow">Point of Sale</p>
-            <h1>New Sale</h1>
-            <p className="pos-description">Browse available products and complete a customer transaction.</p>
-          </div>
-          <Badge variant="info">{userRole || 'Staff'} workspace</Badge>
-        </header>
+        <PageHeader
+          eyebrow={`${userRole || 'Staff'} workspace`}
+          title="Point of Sale"
+          description="Process customer transactions and update inventory in real time."
+        />
 
         {completedSale ? (
-          <Alert variant="success" title="Sale Completed">
-            <span className="pos-success-line">Sale Number: <strong>{completedSale.saleNumber}</strong></span>
-            <span className="pos-success-line">
-              Total: <strong>{formatMoney(completedSale.grandTotalCents)}</strong> - {paymentMethods.find((method) => method.value === completedSale.paymentMethod)?.label}
-            </span>
-            {completedSale.paymentMethod === 'CASH' && completedSale.cashReceivedCents !== null && completedSale.changeDueCents !== null ? (
-              <>
-                <span className="pos-success-line">Cash Received: <strong>{formatMoney(completedSale.cashReceivedCents)}</strong></span>
-                <span className="pos-success-line">Change Due: <strong>{formatMoney(completedSale.changeDueCents)}</strong></span>
-              </>
-            ) : null}
-            <Button variant="secondary" onClick={() => setCompletedSale(null)}>New Sale</Button>
-          </Alert>
+          <div className="pos-success" role="status" aria-live="polite">
+            <div className="pos-success__icon" aria-hidden="true"><Check size={20} /></div>
+            <div className="pos-success__copy">
+              <strong>Sale completed</strong>
+              <span>Transaction {completedSale.saleNumber}</span>
+            </div>
+            <div className="pos-success__amount">
+              <span>Total</span>
+              <strong>{formatMoney(completedSale.grandTotalCents)}</strong>
+            </div>
+            <div className="pos-success__details">
+              <span>{paymentMethods.find((method) => method.value === completedSale.paymentMethod)?.label}</span>
+              {completedSale.paymentMethod === 'CASH' && completedSale.cashReceivedCents !== null && completedSale.changeDueCents !== null ? (
+                <span>Received {formatMoney(completedSale.cashReceivedCents)} / Change {formatMoney(completedSale.changeDueCents)}</span>
+              ) : null}
+            </div>
+            <Button variant="secondary" iconStart={<ReceiptText size={16} />} onClick={() => setCompletedSale(null)}>New Sale</Button>
+          </div>
         ) : null}
 
         <div className="pos-layout">
-          <Card padding="default" className="pos-browser">
-            <div className="pos-section-heading">
-              <div>
-                <p className="pos-eyebrow">Catalog</p>
-                <h2>Products</h2>
-              </div>
-              <span>{productList.length} available</span>
-            </div>
+          <BentoCard
+            className="pos-browser"
+            padding="standard"
+            title="Product Browser"
+            description={`${productList.length} products available for this sale.`}
+          >
             <div className="pos-toolbar">
-              <Input label="Search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products or SKU..." />
+              <div className="pos-search">
+                <Search size={17} aria-hidden="true" />
+                <Input className="pos-search__input" label="Search products" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, SKU, or category" />
+              </div>
               <Select label="Category" value={category} onChange={(event) => setCategory(event.target.value)}>
                 <option value="ALL">All Categories</option>
                 {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
@@ -335,9 +349,9 @@ export default function PosPage({ userEmail, userRole, onLogout, onNavigate }: P
                 const inCart = cart.find((item) => item.product.id === product.id)?.quantity ?? 0;
                 const out = product.currentQuantity < 1;
                 return (
-                  <article className="pos-product" key={product.id}>
+                  <article className={`pos-product${out ? ' is-out-of-stock' : ''}`} key={product.id}>
+                    <ProductImage imageUrl={product.imageUrl} name={product.name} size="catalog" />
                     <div className="pos-product__top">
-                      <span className="pos-product__initial">{product.name.charAt(0).toUpperCase()}</span>
                       <div>
                         <h3>{product.name}</h3>
                         <p>{product.category.name} - {product.sku}</p>
@@ -347,23 +361,29 @@ export default function PosPage({ userEmail, userRole, onLogout, onNavigate }: P
                       <strong>{formatMoney(centsFromPrice(product.price) ?? 0)}</strong>
                       <span>{product.currentQuantity} {unitLabel(product.unitType)} available</span>
                     </div>
-                    <Button variant={out ? 'secondary' : 'primary'} disabled={out || inCart >= product.currentQuantity} onClick={() => addToCart(product)}>
-                      {out ? 'Out of Stock' : inCart ? `In Cart - ${inCart}` : 'Add to Cart'}
+                    <Button
+                      variant={out ? 'secondary' : 'primary'}
+                      iconStart={!out ? <Plus size={16} /> : undefined}
+                      disabled={out || inCart >= product.currentQuantity}
+                      onClick={() => addToCart(product)}
+                      aria-label={out ? `${product.name} is out of stock` : `Add ${product.name} to cart`}
+                    >
+                      {out ? 'Out of Stock' : inCart ? `Add (${inCart} in cart)` : 'Add'}
                     </Button>
                   </article>
                 );
               }) : null}
             </div>
-          </Card>
+          </BentoCard>
 
-          <Card padding="default" className="pos-cart">
-            <div className="pos-section-heading">
-              <div>
-                <p className="pos-eyebrow">Current transaction</p>
-                <h2>Cart</h2>
-              </div>
-              <span>{cart.length} {cart.length === 1 ? 'line' : 'lines'}</span>
-            </div>
+          <BentoCard
+            className="pos-cart"
+            padding="standard"
+            eyebrow="Checkout"
+            title="Current Sale"
+            description={`${cart.length} ${cart.length === 1 ? 'line item' : 'line items'}`}
+            action={<ShoppingCart size={20} aria-hidden="true" />}
+          >
 
             {checkoutError ? <Alert variant="error" title="Sale not completed">{checkoutError}</Alert> : null}
 
@@ -379,25 +399,38 @@ export default function PosPage({ userEmail, userRole, onLogout, onNavigate }: P
                         {stale ? <small>Only {item.product.currentQuantity} remaining</small> : null}
                       </div>
                       <div className="pos-cart-line__bottom">
-                        <div className="pos-quantity">
-                          <Button variant="ghost" aria-label={`Decrease ${item.product.name}`} onClick={() => changeQuantity(item.product.id, -1)}>-</Button>
-                          <span>{item.quantity}</span>
-                          <Button variant="ghost" aria-label={`Increase ${item.product.name}`} disabled={item.quantity >= item.product.currentQuantity} onClick={() => changeQuantity(item.product.id, 1)}>+</Button>
+                        <div className="pos-quantity" aria-label={`${item.product.name} quantity`}>
+                          <Button variant="ghost" aria-label={`Decrease quantity for ${item.product.name}`} onClick={() => changeQuantity(item.product.id, -1)}><Minus size={16} /></Button>
+                          <span aria-live="polite">{item.quantity}</span>
+                          <Button variant="ghost" aria-label={`Increase quantity for ${item.product.name}`} disabled={item.quantity >= item.product.currentQuantity} onClick={() => changeQuantity(item.product.id, 1)}><Plus size={16} /></Button>
                         </div>
                         <strong>{formatMoney(item.unitPriceCents * item.quantity)}</strong>
-                        <Button variant="ghost" aria-label={`Remove ${item.product.name}`} onClick={() => removeFromCart(item.product.id)}>Remove</Button>
+                        <Button className="pos-remove" variant="ghost" aria-label={`Remove ${item.product.name} from cart`} onClick={() => removeFromCart(item.product.id)}><Trash2 size={16} /></Button>
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <EmptyState title="No items in the current sale." description="Add a product to begin." />
+              <EmptyState className="pos-cart-empty" title="No items in the current sale." description="Select a product to begin." />
             )}
 
             {cart.length ? (
               <div className="pos-checkout">
+                <div className="pos-totals" aria-label="Sale totals" aria-live="polite">
+                  <span>Subtotal <strong>{formatMoney(subtotalCents)}</strong></span>
+                  <span>Discount <strong>-{formatMoney(discountCents ?? 0)}</strong></span>
+                  <span className="pos-total">Total <strong>{formatMoney(totalCents)}</strong></span>
+                </div>
+                <details className="pos-sale-options">
+                  <summary>Discount and customer details</summary>
+                  <div className="pos-sale-options__fields">
                 <Input label="Discount (PHP)" type="number" min="0" step="0.01" value={discount} onChange={(event) => setDiscount(event.target.value)} placeholder="0.00" error={discountInvalid && discount ? 'Cannot exceed subtotal' : undefined} />
+                    <Input label="Customer Name (optional)" value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
+                    <label className="pos-notes-label" htmlFor="pos-notes">Notes (optional)</label>
+                    <textarea id="pos-notes" className="ui-textarea" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
+                  </div>
+                </details>
                 <Select
                   label="Payment method"
                   value={paymentMethod}
@@ -425,27 +458,19 @@ export default function PosPage({ userEmail, userRole, onLogout, onNavigate }: P
                     error={cashInvalid ? 'Enter a valid peso amount.' : cashInsufficient ? 'Insufficient cash.' : undefined}
                   />
                 ) : null}
-                <Input label="Customer Name (optional)" value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
-                <label className="pos-notes-label" htmlFor="pos-notes">Notes (optional)</label>
-                <textarea id="pos-notes" className="ui-textarea" rows={2} value={notes} onChange={(event) => setNotes(event.target.value)} />
-                <div className="pos-totals">
-                  <span>Subtotal <strong>{formatMoney(subtotalCents)}</strong></span>
-                  <span>Discount <strong>-{formatMoney(discountCents ?? 0)}</strong></span>
-                  <span className="pos-total">Amount Due <strong>{formatMoney(totalCents)}</strong></span>
                   {paymentMethod === 'CASH' ? (
-                    <>
+                    <div className="pos-totals" aria-label="Cash tender">
                       <span>Cash Received <strong>{cashReceivedCents === null ? '-' : formatMoney(cashReceivedCents)}</strong></span>
-                      <span>Change <strong>{changeDueCents === null ? '-' : formatMoney(changeDueCents)}</strong></span>
-                    </>
+                      <span className={`pos-change${changeDueCents !== null ? ' is-ready' : ''}`} aria-live="polite">Change Due <strong>{changeDueCents === null ? '-' : formatMoney(changeDueCents)}</strong></span>
+                    </div>
                   ) : null}
-                </div>
-                <Button className="pos-complete" onClick={completeSale} loading={submitting} disabled={checkoutBlocked}>
+                <Button className="pos-complete" iconStart={<Banknote size={18} />} onClick={completeSale} loading={submitting} disabled={checkoutBlocked}>
                   {submitting ? 'Processing Sale...' : 'Complete Sale'}
                 </Button>
                 <Button variant="secondary" onClick={clearSale} disabled={submitting}>Clear Sale</Button>
               </div>
             ) : null}
-          </Card>
+          </BentoCard>
         </div>
       </section>
     </AppShell>

@@ -1,32 +1,137 @@
-.dashboard-page--sales-history { --page-bg: #f8fafc; --page-border: #d8e2eb; --page-accent: #be4d55; --page-accent-rgb: 190, 77, 85; --page-accent-soft: #ffe9eb; }
-.sales-history-page { display: grid; gap: var(--space-4); }
-.sales-history-header, .sales-summary, .sales-toolbar, .sale-detail__meta, .sale-detail__totals { display: grid; gap: var(--space-3); }
-.sales-history-header { grid-template-columns: minmax(0, 1fr) auto; align-items: start; }
-.sales-history-header h1 { margin: 0; color: var(--color-text); font-size: var(--text-page-title); line-height: var(--line-tight); }
-.sales-history-header > div > p:not(.sales-eyebrow) { margin: var(--space-2) 0 0; color: var(--color-text-secondary); font-size: var(--text-body); }
-.sales-eyebrow { margin: 0 0 var(--space-1); color: var(--color-primary); font-size: var(--text-meta); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
-.sales-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.sales-summary__card { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--page-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-xs); }
-.sales-summary__card span { color: var(--color-text-muted); font-size: var(--text-meta); font-weight: 700; }
-.sales-summary__card strong { color: var(--color-text); font-size: 22px; line-height: 1.1; }
-.sales-history-card { display: grid; gap: var(--space-4); }
-.sales-toolbar { grid-template-columns: minmax(220px, 1fr) repeat(4, minmax(120px, 150px)); align-items: end; }
-.sales-state { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-8); color: var(--color-text-secondary); }
-.sales-table-wrap, .sale-items { overflow-x: auto; }
-.sales-table, .sale-items { width: 100%; border-collapse: collapse; font-size: var(--text-table); }
-.sales-table { min-width: 980px; }
-.sales-table th, .sale-items th { padding: 0 10px 10px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: var(--text-meta); font-weight: 800; text-align: left; text-transform: uppercase; }
-.sales-table td, .sale-items td { padding: 13px 10px; border-bottom: 1px solid var(--color-border-subtle); color: var(--color-text-secondary); white-space: nowrap; }
-.sales-table td:first-child, .sales-table td:nth-last-child(2) { color: var(--color-text); }
-.sales-table tbody tr:last-child td, .sale-items tbody tr:last-child td { border-bottom: 0; }
-.sale-detail { display: grid; gap: var(--space-5); }
-.sale-detail__meta { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.sale-detail__meta span { display: grid; gap: 4px; color: var(--color-text-muted); font-size: var(--text-meta); font-weight: 700; }
-.sale-detail__meta strong { color: var(--color-text); font-size: var(--text-body); font-weight: 600; }
-.sale-detail__notes { margin: 0; padding: var(--space-3); background: var(--color-surface-subtle); color: var(--color-text-secondary); font-size: var(--text-body); line-height: var(--line-body); }
-.sale-detail__totals { justify-self: end; width: min(100%, 290px); }
-.sale-detail__totals span { display: flex; justify-content: space-between; gap: var(--space-4); color: var(--color-text-secondary); font-size: var(--text-body); }
-.sale-detail__totals strong { color: var(--color-text); }
-.sale-detail__grand-total { padding-top: var(--space-2); border-top: 1px solid var(--color-border); font-weight: 800; }
-@media (max-width: 900px) { .sales-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sales-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .sales-toolbar .ui-field:first-child { grid-column: 1 / -1; } }
-@media (max-width: 560px) { .sales-history-header { grid-template-columns: 1fr; } .sales-summary { gap: var(--space-2); } .sales-summary__card { padding: var(--space-3); } .sales-summary__card strong { font-size: 18px; } .sales-toolbar { grid-template-columns: 1fr; } .sales-toolbar .ui-field:first-child { grid-column: auto; } .sale-detail__meta { grid-template-columns: 1fr 1fr; } }
+@import "../_shared/operational.css";
+
+.dashboard-page--sales-history {
+  --page-bg: var(--color-bg);
+  --page-border: var(--color-border);
+  --page-accent: var(--color-primary);
+  --page-accent-rgb: 55, 152, 255;
+  --page-accent-soft: var(--color-primary-subtle);
+}
+
+.sales-history-card {
+  --toolbar-filters: 4;
+  --table-min-width: 1040px;
+}
+
+.sales-summary .metric-card__value {
+  font-size: 21px;
+}
+
+.sales-state {
+  min-height: 42px;
+}
+
+.sales-table td {
+  white-space: nowrap;
+  padding-block: 7px;
+}
+
+.sales-table td:first-child,
+.sales-table td:nth-last-child(2) {
+  color: var(--color-text);
+}
+
+.sale-detail {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.sale-detail__meta.operational-detail-grid span {
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--color-border-subtle);
+  border-radius: 0;
+  background: transparent;
+}
+
+.sale-detail__notes {
+  margin: 0;
+  padding: var(--space-3);
+  border-left: 3px solid var(--color-primary);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: var(--line-body);
+}
+
+.sale-items-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.sale-items {
+  --table-min-width: 760px;
+}
+
+.sale-detail__totals {
+  justify-self: end;
+  width: min(100%, 320px);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--color-surface-subtle);
+}
+
+.sale-detail__totals span {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+
+.sale-detail__totals strong {
+  color: var(--color-text);
+}
+
+.sale-detail__grand-total {
+  margin-top: var(--space-1);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  color: var(--color-text) !important;
+  font-size: 16px !important;
+  font-weight: 800;
+}
+
+.sale-detail__grand-total strong {
+  font-size: 18px;
+}
+
+@media (max-width: 1100px) {
+  .sales-summary .metric-card {
+    grid-column: span 3;
+  }
+}
+
+@media (max-width: 720px) {
+  .sales-summary.bento-grid {
+    --bento-columns: 2;
+  }
+
+  .sales-summary .metric-card {
+    grid-column: span 1;
+    min-height: 96px;
+    padding: var(--space-3);
+  }
+}
+
+@media (max-width: 640px) {
+  .sales-history-card {
+    --table-min-width: 940px;
+  }
+
+  .sales-history-card .operational-table-wrap {
+    width: 100%;
+    margin-inline: 0;
+    border-inline: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+  }
+
+  .sale-detail__totals {
+    justify-self: stretch;
+  }
+}

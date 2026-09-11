@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { CalendarRange, CircleHelp, Info, PackageSearch, RefreshCw, TriangleAlert } from 'lucide-react';
+import PageHeader from '../../../components/PageHeader';
+import { BentoCard } from '../../../components/layout/BentoCard';
+import { BentoGrid } from '../../../components/layout/BentoGrid';
+import { MetricCard } from '../../../components/layout/MetricCard';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   EmptyState,
   Select,
   Spinner,
@@ -13,11 +17,13 @@ import type { UserRole } from '../../../types/auth';
 import type { Product } from '../../../types/product';
 import type { PurchaseOrderPrefill } from '../../../types/purchase-order';
 import type { DashboardPageName } from '../_shared/DashboardPageShell';
+import type { HelpTopicId } from '../help/guide';
 import ForecastChart from './ForecastChart';
 import ForecastEvaluationChart from './ForecastEvaluationChart';
 import './styles.css';
 
 type DashboardPageProps = {
+  onOpenHelp?: (topic: HelpTopicId) => void;
   userEmail?: string;
   userRole?: UserRole;
   onLogout?: () => void;
@@ -241,6 +247,10 @@ function formatPercent(value: number | null | undefined) {
   })}%`;
 }
 
+function formatWape(value: number | null | undefined) {
+  return value === null || value === undefined ? 'Not available' : formatPercent(value);
+}
+
 function formatSignedQuantity(value: number, suffix = ' units') {
   if (value === 0) return `0${suffix}`;
   const sign = value > 0 ? '+' : '';
@@ -267,6 +277,13 @@ function methodLabel(method: Forecast['method']) {
   return method === 'MOVING_AVERAGE' ? 'Moving Average' : method;
 }
 
+function metricToneForRisk(risk: ForecastRisk): 'default' | 'success' | 'warning' | 'danger' {
+  if (risk === 'OUT_OF_STOCK' || risk === 'CRITICAL') return 'danger';
+  if (risk === 'AT_RISK') return 'warning';
+  if (risk === 'STABLE') return 'success';
+  return 'default';
+}
+
 function isNoHistoryResponse(value: ForecastResponse | ForecastNoHistoryResponse): value is ForecastNoHistoryResponse {
   return 'forecastStatus' in value && value.forecastStatus === 'NO_HISTORY';
 }
@@ -277,6 +294,7 @@ export default function ForecastingPage({
   onLogout,
   onNavigate,
   onCreatePurchaseOrderFromPrefill,
+  onOpenHelp,
 }: DashboardPageProps) {
   const [products, setProducts] = useState<ForecastProduct[]>([]);
   const [selectedProductId, setSelectedProductId] = useState('');
@@ -501,26 +519,25 @@ export default function ForecastingPage({
       className="dashboard-page dashboard-page--forecasting"
     >
       <section className="forecast-page" aria-label="Predictive analysis workspace">
-        <header className="forecast-header">
-          <div>
-            <p className="forecast-eyebrow">Demand planning</p>
-            <h1>Predictive Analysis</h1>
-            <p>Forecast future product demand using historical sales and moving average.</p>
-            <small>Forecasts are based on completed sales transactions.</small>
-          </div>
-          {selectedProduct ? (
+        <PageHeader
+          eyebrow="Demand planning"
+          title="Predictive Analysis"
+          description="Generate Moving Average demand forecasts and evaluate predictive inventory risk."
+          secondaryActions={selectedProduct ? (
             <Button
               variant="secondary"
+              iconStart={<RefreshCw />}
               onClick={() => {
                 void loadLatest(selectedProduct.id);
                 void loadInsight(selectedProduct.id);
               }}
               disabled={loadingLatest || generating}
+              loading={loadingLatest}
             >
-              {loadingLatest ? 'Loading Latest...' : 'Load Latest Forecast'}
+              Load Latest Forecast
             </Button>
           ) : null}
-        </header>
+        />
 
         {productError ? (
           <Alert variant="error" title="Unable to load products">{productError}</Alert>
@@ -543,14 +560,21 @@ export default function ForecastingPage({
           <Alert variant="info" title="No saved forecast">{latestMessage}</Alert>
         ) : null}
 
-        <div className="forecast-layout">
-          <Card padding="default" className="forecast-config">
+        <BentoGrid className="forecast-layout" gap="standard" dense aria-label="Predictive analysis layout">
+          <BentoCard
+            className="forecast-config bento-span-full"
+            variant="form"
+            padding="standard"
+            eyebrow="Forecast controls"
+            title="Forecast Settings"
+            description="Select an active product, historical window, and forecast horizon."
+            action={(
+              <Button variant="ghost" iconStart={<CircleHelp />} onClick={() => onOpenHelp?.('moving-average')}>
+                Learn more
+              </Button>
+            )}
+          >
             <form onSubmit={generateForecast}>
-              <div>
-                <h2>Forecast Configuration</h2>
-                <p>Moving Average</p>
-              </div>
-
               {loadingProducts ? (
                 <div className="forecast-loading">
                   <Spinner size="md" label="Loading products" />
@@ -558,60 +582,65 @@ export default function ForecastingPage({
                 </div>
               ) : products.length ? (
                 <>
-                  <Select
-                    label="Product"
-                    value={selectedProductId}
-                    onChange={(event) => setSelectedProductId(event.target.value)}
-                  >
-                    {products.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} - {product.sku}
-                      </option>
-                    ))}
-                  </Select>
+                  <div className="forecast-control-grid">
+                    <Select
+                      label="Product"
+                      value={selectedProductId}
+                      onChange={(event) => setSelectedProductId(event.target.value)}
+                    >
+                      {products.map((product) => (
+                        <option key={product.id} value={product.id}>
+                          {product.name} - {product.sku}
+                        </option>
+                      ))}
+                    </Select>
 
-                  <Select
-                    label="Moving Average Window"
-                    value={String(windowDays)}
-                    onChange={(event) => setWindowDays(Number(event.target.value) as (typeof dayOptions)[number])}
-                    helperText="Number of completed historical days used to calculate average daily demand."
-                  >
-                    {dayOptions.map((days) => (
-                      <option key={days} value={days}>{days} Days</option>
-                    ))}
-                  </Select>
+                    <Select
+                      label="Historical Window"
+                      value={String(windowDays)}
+                      onChange={(event) => setWindowDays(Number(event.target.value) as (typeof dayOptions)[number])}
+                      helperText="Completed historical days used for average demand."
+                    >
+                      {dayOptions.map((days) => (
+                        <option key={days} value={days}>{days} Days</option>
+                      ))}
+                    </Select>
 
-                  <Select
-                    label="Forecast Horizon"
-                    value={String(horizonDays)}
-                    onChange={(event) => setHorizonDays(Number(event.target.value) as (typeof dayOptions)[number])}
-                    helperText="Number of future days to forecast."
-                  >
-                    {dayOptions.map((days) => (
-                      <option key={days} value={days}>{days} Days</option>
-                    ))}
-                  </Select>
+                    <Select
+                      label="Forecast Horizon"
+                      value={String(horizonDays)}
+                      onChange={(event) => setHorizonDays(Number(event.target.value) as (typeof dayOptions)[number])}
+                      helperText="Future days to project."
+                    >
+                      {dayOptions.map((days) => (
+                        <option key={days} value={days}>{days} Days</option>
+                      ))}
+                    </Select>
 
-                  <Button type="submit" disabled={!selectedProductId || generating} loading={generating}>
-                    {generating ? 'Generating Forecast...' : 'Generate Forecast'}
-                  </Button>
+                    <Button type="submit" disabled={!selectedProductId || generating} loading={generating}>
+                      Generate Forecast
+                    </Button>
+                  </div>
                 </>
               ) : (
                 <EmptyState title="No active products are available for forecasting." />
               )}
             </form>
-          </Card>
+          </BentoCard>
 
-          <Card padding="default" className="forecast-explanation">
-            <h2>How this forecast is calculated</h2>
-            <p>
-              The system totals completed product sales across the selected historical period,
-              includes calendar days with no sales as zero demand, and divides the total quantity
-              by the number of observed days. The resulting moving average is used as the predicted
-              daily demand for the selected forecast horizon.
-            </p>
-          </Card>
-        </div>
+          <BentoCard
+            className="forecast-help-surface bento-span-full"
+            padding="compact"
+            variant="muted"
+            eyebrow="Method"
+            title="How is this forecast calculated?"
+            description="Learn how the Moving Average forecast works."
+            action={(
+              <Button variant="secondary" iconStart={<Info />} onClick={() => onOpenHelp?.('moving-average')}>
+                Learn more
+              </Button>
+            )}
+          />
 
         {!selectedProductId && !loadingProducts ? (
           <EmptyState title="Select a product to view or generate a forecast." />
@@ -638,20 +667,115 @@ export default function ForecastingPage({
           </div>
         ) : null}
 
-        {insight && !loadingInsight ? (
-          <Card padding="default" className="forecast-insights">
-            <div className="forecast-results-header">
-              <div>
-                <h2>Inventory Decision Support</h2>
-                <p>
-                  Static reorder uses the configured reorder point. Predictive reorder uses
-                  forecasted demand from completed sales.
-                </p>
+        {forecast && !loadingLatest ? (
+          <>
+            <BentoCard
+              className="forecast-summary bento-span-full"
+              padding="standard"
+              eyebrow="Current forecast"
+              title="Forecast Summary"
+              description={`${forecast.product?.name ?? selectedProduct?.name} - ${forecast.product?.sku ?? selectedProduct?.sku}`}
+            >
+              {forecast.isLimitedHistory ? (
+                <Alert variant="warning" title="Limited History">
+                  Forecast uses {forecast.historyDaysUsed ?? 0} available historical days instead of
+                  the requested {forecast.windowDays ?? windowDays} days.
+                </Alert>
+              ) : null}
+              {zeroDemand ? (
+                <Alert variant="info" title="Zero demand observed">
+                  No completed sales were recorded during the observed period.
+                </Alert>
+              ) : null}
+
+              <BentoGrid className="forecast-summary-grid" columns={6} gap="compact">
+                <MetricCard className="bento-span-2" label="Average Daily Demand" value={formatQuantity(forecast.averageDailyDemand, ' units/day')} icon={<PackageSearch />} />
+                <MetricCard className="bento-span-2" label="Moving Average" value={`${forecast.windowDays ?? windowDays} days`} icon={<CalendarRange />} />
+                <MetricCard className="bento-span-2" label="Forecast Horizon" value={`${forecast.horizonDays ?? forecast.points.length} days`} />
+                <MetricCard className="bento-span-2" label="History Used" value={`${forecast.historyDaysUsed ?? '-'} days`} />
+                <MetricCard className="bento-span-2" label="Generated At" value={formatDateTime(forecast.generatedAt)} />
+                <MetricCard className="bento-span-2" label="Method" value={methodLabel(forecast.method)} />
+              </BentoGrid>
+            </BentoCard>
+
+            <BentoCard
+              className="forecast-results bento-span-8"
+              padding="analytical"
+              variant="analytical"
+              eyebrow="Forecast chart"
+              title="Forecasted Daily Demand"
+              description="Projected daily demand across the selected forecast horizon."
+            >
+              <ForecastChart points={forecast.points} />
+            </BentoCard>
+
+            <BentoCard
+              className="forecast-periods bento-span-4"
+              padding="standard"
+              variant="muted"
+              eyebrow="Forecast context"
+              title="Source and Horizon"
+              description="Compact metadata for the current forecast run."
+            >
+              <div className="forecast-period-list">
+                <article>
+                  <span>Historical Source</span>
+                  <strong>{formatDate(forecast.sourceStartDate)} - {formatDate(forecast.sourceEndDate)}</strong>
+                </article>
+                <article>
+                  <span>Forecast Period</span>
+                  <strong>{formatDate(forecast.horizonStartDate)} - {formatDate(forecast.horizonEndDate)}</strong>
+                </article>
+                <article>
+                  <span>Status</span>
+                  <strong><Badge variant="neutral">{forecast.status}</Badge></strong>
+                </article>
               </div>
+            </BentoCard>
+
+            <BentoCard
+              className="forecast-table-card bento-span-full"
+              padding="standard"
+              variant="table"
+              eyebrow="Forecast evidence"
+              title="Daily Predicted Demand"
+              description="Exact predicted quantity by forecast date."
+            >
+              <div className="forecast-table-wrap">
+                <table className="forecast-table">
+                  <thead>
+                    <tr>
+                      <th>Forecast Date</th>
+                      <th>Predicted Demand</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {forecast.points.map((point) => (
+                      <tr key={point.date}>
+                        <td>{formatDate(point.date)}</td>
+                        <td>{formatQuantity(point.predictedQuantity)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </BentoCard>
+          </>
+        ) : null}
+
+        {insight && !loadingInsight ? (
+          <BentoCard
+            className="forecast-insights bento-span-full"
+            padding="standard"
+            eyebrow="Forecast-based risk"
+            title="Inventory Decision Support"
+            description="Forecast-based stock risk and reorder guidance."
+            action={(
               <Badge variant={riskVariants[insight.predictive.risk]}>
                 {riskLabels[insight.predictive.risk]}
               </Badge>
-            </div>
+            )}
+          >
 
             {insight.predictive.risk === 'NO_FORECAST' ? (
               <Alert variant="info" title="Forecast Required">
@@ -670,36 +794,20 @@ export default function ForecastingPage({
               </Alert>
             ) : null}
 
-            <div className="forecast-insight-grid">
-              <article>
-                <span>Current Stock</span>
-                <strong>{formatQuantity(insight.inventory.currentQuantity)}</strong>
-              </article>
-              <article>
-                <span>Average Daily Demand</span>
-                <strong>{formatQuantity(insight.forecast?.averageDailyDemand, ' units/day')}</strong>
-              </article>
-              <article>
-                <span>Days of Stock Remaining</span>
-                <strong>{formatDaysRemaining(insight.predictive.daysOfStockRemaining)}</strong>
-              </article>
-              <article>
-                <span>Estimated Stock-Out</span>
-                <strong>{formatStockoutDate(insight.predictive.estimatedStockoutDate)}</strong>
-              </article>
-              <article>
-                <span>Forecast Risk</span>
-                <strong>
-                  <Badge variant={riskVariants[insight.predictive.risk]}>
-                    {riskLabels[insight.predictive.risk]}
-                  </Badge>
-                </strong>
-              </article>
-              <article>
-                <span>Predictive Reorder</span>
-                <strong>{formatNullableQuantity(insight.predictive.predictiveReorderQuantity)}</strong>
-              </article>
-            </div>
+            <BentoGrid className="forecast-insight-grid" columns={6} gap="compact">
+              <MetricCard className="bento-span-2" label="Current Stock" value={formatQuantity(insight.inventory.currentQuantity)} icon={<PackageSearch />} />
+              <MetricCard className="bento-span-2" label="Average Daily Demand" value={formatQuantity(insight.forecast?.averageDailyDemand, ' units/day')} />
+              <MetricCard className="bento-span-2" label="Days Remaining" value={formatDaysRemaining(insight.predictive.daysOfStockRemaining)} />
+              <MetricCard className="bento-span-2" label="Estimated Stock-Out" value={formatStockoutDate(insight.predictive.estimatedStockoutDate)} />
+              <MetricCard
+                className="bento-span-2"
+                label="Forecast Risk"
+                value={<Badge variant={riskVariants[insight.predictive.risk]}>{riskLabels[insight.predictive.risk]}</Badge>}
+                tone={metricToneForRisk(insight.predictive.risk)}
+                icon={<TriangleAlert />}
+              />
+              <MetricCard className="bento-span-2" label="Predictive Reorder" value={formatNullableQuantity(insight.predictive.predictiveReorderQuantity)} />
+            </BentoGrid>
 
             <div className="forecast-comparison">
               <article>
@@ -738,205 +846,121 @@ export default function ForecastingPage({
                 No predictive reorder is currently recommended.
               </div>
             ) : null}
-          </Card>
+          </BentoCard>
         ) : null}
 
-        {forecast && !loadingLatest ? (
+        {evaluation && !loadingEvaluation ? (
           <>
-            <section className="forecast-summary" aria-label="Forecast summary">
-              {forecast.isLimitedHistory ? (
-                <Alert variant="warning" title="Limited History">
-                  Forecast uses {forecast.historyDaysUsed ?? 0} available historical days instead of
-                  the requested {forecast.windowDays ?? windowDays} days.
-                </Alert>
-              ) : null}
-              {zeroDemand ? (
-                <Alert variant="info" title="Zero demand observed">
-                  No completed sales were recorded during the observed period.
-                </Alert>
-              ) : null}
-
-              <div className="forecast-summary-grid">
-                <article>
-                  <span>Average Daily Demand</span>
-                  <strong>{formatQuantity(forecast.averageDailyDemand, ' units/day')}</strong>
-                </article>
-                <article>
-                  <span>Moving Average</span>
-                  <strong>{forecast.windowDays ?? windowDays} days</strong>
-                </article>
-                <article>
-                  <span>Forecast Horizon</span>
-                  <strong>{forecast.horizonDays ?? forecast.points.length} days</strong>
-                </article>
-                <article>
-                  <span>History Used</span>
-                  <strong>{forecast.historyDaysUsed ?? '-'} days</strong>
-                </article>
-                <article>
-                  <span>Generated At</span>
-                  <strong>{formatDateTime(forecast.generatedAt)}</strong>
-                </article>
-                <article>
-                  <span>Method</span>
-                  <strong>{methodLabel(forecast.method)}</strong>
-                </article>
-              </div>
-            </section>
-
-            <section className="forecast-periods" aria-label="Forecast periods">
-              <article>
-                <span>Historical Source</span>
-                <strong>{formatDate(forecast.sourceStartDate)} - {formatDate(forecast.sourceEndDate)}</strong>
-              </article>
-              <article>
-                <span>Forecast Period</span>
-                <strong>{formatDate(forecast.horizonStartDate)} - {formatDate(forecast.horizonEndDate)}</strong>
-              </article>
-              <article>
-                <span>Status</span>
-                <strong><Badge variant="neutral">{forecast.status}</Badge></strong>
-              </article>
-            </section>
-
-            {evaluation && !loadingEvaluation ? (
-              <Card padding="default" className="forecast-evaluation">
-                <div className="forecast-results-header">
-                  <div>
-                    <h2>Forecast Evaluation</h2>
-                    <p>Compare matured forecast days with actual completed sales.</p>
-                  </div>
-                  <Badge variant={evaluation.status === 'READY' ? 'success' : 'info'}>
-                    {evaluation.evaluatedPeriods} of {evaluation.totalForecastPeriods} Days
-                  </Badge>
-                </div>
-
-                <div className="forecast-evaluation-coverage">
-                  <span>{formatPercent(evaluation.coveragePercent)} coverage</span>
-                  {evaluation.forecastRun.isLimitedHistory ? (
-                    <span>
-                      Limited history: {evaluation.forecastRun.historyDaysUsed ?? 0} of{' '}
-                      {evaluation.forecastRun.windowDays ?? '-'} days used
-                    </span>
-                  ) : null}
-                </div>
-
-                {evaluation.status === 'NOT_READY' ? (
-                  <Alert variant="info" title="Evaluation Not Ready">
-                    Forecast evaluation will be available after the first forecast day is complete.
-                  </Alert>
+            <BentoCard
+              className="forecast-evaluation bento-span-4"
+              padding="standard"
+              eyebrow="Forecast evaluation"
+              title="Forecast Evaluation"
+              description="Compare matured forecast values with actual completed sales."
+              action={(
+                <Badge variant={evaluation.status === 'READY' ? 'success' : 'info'}>
+                  {evaluation.status === 'READY' ? 'Ready' : 'Not ready yet'}
+                </Badge>
+              )}
+            >
+              <div className="forecast-evaluation-coverage">
+                <span>{formatPercent(evaluation.coveragePercent)} coverage</span>
+                <span>{evaluation.evaluatedPeriods} of {evaluation.totalForecastPeriods} days</span>
+                {evaluation.forecastRun.isLimitedHistory ? (
+                  <span>
+                    Limited history: {evaluation.forecastRun.historyDaysUsed ?? 0} of{' '}
+                    {evaluation.forecastRun.windowDays ?? '-'} days used
+                  </span>
                 ) : null}
+              </div>
 
-                {evaluation.metrics ? (
-                  <>
-                    <div className="forecast-evaluation-grid">
-                      <article>
-                        <span>Evaluated Days</span>
-                        <strong>
-                          {evaluation.evaluatedPeriods} of {evaluation.totalForecastPeriods}
-                        </strong>
-                      </article>
-                      <article>
-                        <span>MAE</span>
-                        <strong>{formatQuantity(evaluation.metrics.mae, ' units/day')}</strong>
-                        <small>Average absolute quantity error per evaluated day.</small>
-                      </article>
-                      <article>
-                        <span>WAPE</span>
-                        <strong>{formatPercent(evaluation.metrics.wapePercent)}</strong>
-                        <small>
-                          {evaluation.metrics.wapePercent === null
-                            ? 'Unavailable because actual demand was zero across evaluated days.'
-                            : 'Absolute forecast error relative to total actual demand.'}
-                        </small>
-                      </article>
-                      <article>
-                        <span>Forecast Bias</span>
-                        <strong>
-                          <Badge variant={biasVariants[evaluation.metrics.biasDirection]}>
-                            {biasLabels[evaluation.metrics.biasDirection]}
-                          </Badge>
-                        </strong>
-                        <small>{formatSignedQuantity(evaluation.metrics.meanError, ' units/day')}</small>
-                      </article>
-                      <article>
-                        <span>Total Predicted</span>
-                        <strong>{formatQuantity(evaluation.metrics.totalPredicted)}</strong>
-                      </article>
-                      <article>
-                        <span>Total Actual</span>
-                        <strong>{formatQuantity(evaluation.metrics.totalActual)}</strong>
-                      </article>
-                    </div>
+              {evaluation.status === 'NOT_READY' ? (
+                <Alert variant="info" title="Evaluation Not Ready">
+                  Evaluation becomes available once forecast dates have matured and actual sales can be compared.
+                </Alert>
+              ) : null}
 
-                    <ForecastEvaluationChart points={evaluation.points} />
+              {evaluation.metrics ? (
+                <div className="forecast-evaluation-grid">
+                  <MetricCard label="Evaluated Periods" value={`${evaluation.evaluatedPeriods} of ${evaluation.totalForecastPeriods}`} />
+                  <MetricCard label="MAE" value={formatQuantity(evaluation.metrics.mae, ' units/day')} helper="Average absolute quantity error." />
+                  <MetricCard
+                    label="WAPE"
+                    value={formatWape(evaluation.metrics.wapePercent)}
+                    helper={evaluation.metrics.wapePercent === null
+                      ? 'Unavailable because actual demand was zero.'
+                      : 'Absolute error relative to total actual demand.'}
+                  />
+                  <MetricCard
+                    label="Mean Error"
+                    value={formatSignedQuantity(evaluation.metrics.meanError, ' units/day')}
+                    helper="Positive means over-forecast; negative means under-forecast."
+                    tone={evaluation.metrics.meanError === 0 ? 'success' : 'warning'}
+                  />
+                  <MetricCard
+                    label="Bias Direction"
+                    value={<Badge variant={biasVariants[evaluation.metrics.biasDirection]}>{biasLabels[evaluation.metrics.biasDirection]}</Badge>}
+                  />
+                  <MetricCard label="Total Predicted" value={formatQuantity(evaluation.metrics.totalPredicted)} />
+                  <MetricCard label="Total Actual" value={formatQuantity(evaluation.metrics.totalActual)} />
+                </div>
+              ) : null}
+            </BentoCard>
 
-                    <div className="forecast-table-wrap">
-                      <div className="forecast-table-caption">
-                        Positive difference = over-forecast. Negative difference = under-forecast.
-                      </div>
-                      <table className="forecast-table forecast-table--evaluation">
-                        <thead>
-                          <tr>
-                            <th>Date</th>
-                            <th>Predicted</th>
-                            <th>Actual</th>
-                            <th>Difference</th>
-                            <th>Absolute Error</th>
+            {evaluation.metrics ? (
+              <>
+                <BentoCard
+                  className="forecast-evaluation-chart-card bento-span-8"
+                  padding="analytical"
+                  variant="analytical"
+                  eyebrow="Evaluation chart"
+                  title="Predicted vs Actual Demand"
+                  description="Predicted demand compared with actual completed-sales demand."
+                >
+                  <ForecastEvaluationChart points={evaluation.points} />
+                </BentoCard>
+
+                <BentoCard
+                  className="forecast-evaluation-table-card bento-span-full"
+                  padding="standard"
+                  variant="table"
+                  eyebrow="Evaluation evidence"
+                  title="Daily Comparison"
+                  description="Positive difference = over-forecast. Negative difference = under-forecast."
+                >
+                  <div className="forecast-table-wrap">
+                    <table className="forecast-table forecast-table--evaluation">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Predicted</th>
+                          <th>Actual</th>
+                          <th>Difference</th>
+                          <th>Absolute Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {evaluation.points.map((point) => (
+                          <tr key={point.date}>
+                            <td>{formatDate(point.date)}</td>
+                            <td>{formatQuantity(point.predictedQuantity)}</td>
+                            <td>{formatQuantity(point.actualQuantity)}</td>
+                            <td className={point.error > 0 ? 'is-over' : point.error < 0 ? 'is-under' : undefined}>
+                              {formatSignedQuantity(point.error)}
+                            </td>
+                            <td>{formatQuantity(point.absoluteError)}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {evaluation.points.map((point) => (
-                            <tr key={point.date}>
-                              <td>{formatDate(point.date)}</td>
-                              <td>{formatQuantity(point.predictedQuantity)}</td>
-                              <td>{formatQuantity(point.actualQuantity)}</td>
-                              <td className={point.error > 0 ? 'is-over' : point.error < 0 ? 'is-under' : undefined}>
-                                {formatSignedQuantity(point.error)}
-                              </td>
-                              <td>{formatQuantity(point.absoluteError)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                ) : null}
-              </Card>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </BentoCard>
+              </>
             ) : null}
-
-            <Card padding="default" className="forecast-results">
-              <div className="forecast-results-header">
-                <div>
-                  <h2>Daily Predicted Demand</h2>
-                  <p>{forecast.product?.name ?? selectedProduct?.name} - {forecast.product?.sku ?? selectedProduct?.sku}</p>
-                </div>
-                <Badge variant="info">Moving Average</Badge>
-              </div>
-
-              <ForecastChart points={forecast.points} />
-
-              <div className="forecast-table-wrap">
-                <table className="forecast-table">
-                  <thead>
-                    <tr>
-                      <th>Forecast Date</th>
-                      <th>Predicted Demand</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {forecast.points.map((point) => (
-                      <tr key={point.date}>
-                        <td>{formatDate(point.date)}</td>
-                        <td>{formatQuantity(point.predictedQuantity)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
           </>
         ) : null}
+        </BentoGrid>
+
       </section>
     </AppShell>
   );

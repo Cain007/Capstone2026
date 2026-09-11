@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import Dashboard from './pages/dashboard';
 import Login from './pages/login';
+import Home from './pages/home';
 import PasswordChange from './pages/password-change';
 import type { AuthResponse, User } from './types/auth';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 function App() {
+  const [publicView, setPublicView] = useState<'home' | 'login'>('home');
   const [user, setUser] = useState<User | null>(null);
   const [defaultRoute, setDefaultRoute] = useState<AuthResponse['defaultRoute']>('Dashboard');
   const [initialToken] = useState(
@@ -57,6 +59,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    setPublicView('home');
     localStorage.removeItem('auth_token');
     sessionStorage.removeItem('auth_token');
     setUser(null);
@@ -88,8 +91,10 @@ function App() {
       onLogout={handleLogout}
       onUserUpdated={setUser}
     />
+  ) : publicView === 'login' ? (
+    <Login onAuthenticated={handleAuthenticated} onBackHome={() => setPublicView('home')} />
   ) : (
-    <Login onAuthenticated={handleAuthenticated} />
+    <Home onSignIn={() => setPublicView('login')} />
   );
 }
 

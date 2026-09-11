@@ -1,8 +1,10 @@
+@import "../_shared/operational.css";
+
 .dashboard-page--products {
   --page-bg: var(--color-bg);
   --page-border: var(--color-border);
   --page-accent: var(--color-primary);
-  --page-accent-rgb: 15, 118, 110;
+  --page-accent-rgb: 91, 183, 242;
   --page-accent-soft: var(--color-primary-subtle);
 }
 
@@ -17,11 +19,6 @@
   gap: var(--space-4);
 }
 
-.products-summary div {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
-}
 
 .products-summary span,
 .products-toolbar .ui-field__label {
@@ -41,8 +38,8 @@
 }
 
 .products-resource-card {
-  display: grid;
-  gap: var(--space-4);
+  --toolbar-filters: 3;
+  --table-min-width: 1060px;
 }
 
 .products-toolbar {
@@ -100,12 +97,12 @@
 }
 
 .products-table tbody tr:hover {
-  background: #fbfdff;
+  background: var(--color-surface-subtle);
 }
 
 .products-product-cell {
   display: grid;
-  grid-template-columns: 38px minmax(190px, 1fr);
+  grid-template-columns: 40px minmax(190px, 1fr);
   align-items: center;
   gap: var(--space-3);
   min-width: 250px;
@@ -119,7 +116,7 @@
   line-height: var(--line-tight);
 }
 
-.products-product-cell span:not(.products-thumbnail) {
+.products-product-cell > div > span {
   max-width: 310px;
   display: -webkit-box;
   overflow: hidden;
@@ -280,6 +277,16 @@
   gap: var(--space-3);
 }
 
+.products-image-editor { display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 20px; align-items: start; }
+.products-image-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.products-image-filename { margin: 0; overflow-wrap: anywhere; color: var(--color-text-secondary); font-size: 12px; }
+.products-image-controls { min-width: 0; }
+.products-image-controls input[type="file"] { max-width: 100%; min-width: 0; }
+.products-image-controls input[type="file"]::file-selector-button { margin-right: 8px; padding: 4px 8px; border: 1px solid var(--color-border); border-radius: 4px; background: var(--color-surface-subtle); color: var(--color-text); cursor: pointer; }
+@media (max-width: 1023px) {
+  .products-image-editor { grid-template-columns: minmax(0, 1fr); }
+}
+
 .products-image-controls .ui-button {
   min-height: 34px;
 }
@@ -297,34 +304,5 @@
 
   .products-toolbar {
     grid-template-columns: 1fr 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .products-form-grid,
-  .products-image-field {
-    grid-template-columns: 1fr;
-  }
-
-  .products-image-preview-box {
-    width: min(100%, 240px);
-  }
-}
-
-@media (max-width: 640px) {
-  .products-summary,
-  .products-toolbar {
-    grid-template-columns: 1fr;
-  }
-
-  .products-summary {
-    gap: var(--space-3);
-  }
-
-  .products-table-wrap {
-    margin-inline: calc(var(--space-4) * -1);
-    width: calc(100% + var(--space-8));
-    border-inline: 0;
-    border-radius: 0;
   }
 }

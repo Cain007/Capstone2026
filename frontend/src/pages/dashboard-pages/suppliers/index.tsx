@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Pencil, Plus, Trash2, Truck } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
+import { BentoCard } from '../../../components/layout/BentoCard';
+import { BentoGrid } from '../../../components/layout/BentoGrid';
+import { MetricCard } from '../../../components/layout/MetricCard';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   ConfirmDialog,
   EmptyState,
   Input,
@@ -342,13 +345,16 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
       onNavigate={onNavigate}
       className="dashboard-page dashboard-page--suppliers"
     >
-      <section className="suppliers-page" aria-label="Suppliers workspace">
+      <section className="suppliers-page operational-page" aria-label="Suppliers workspace">
         <PageHeader
           eyebrow="Catalog"
           title="Suppliers"
-          description="Manage supplier information, contact details, and account status."
-          actionLabel="+ Add Supplier"
-          onAction={openCreateModal}
+          description="Maintain supplier and contact information for procurement."
+          secondaryActions={(
+            <Button variant="primary" onClick={openCreateModal} iconStart={<Plus />}>
+              Add Supplier
+            </Button>
+          )}
         />
 
         {successMessage ? (
@@ -357,27 +363,22 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
           </Alert>
         ) : null}
 
-        <Card padding="compact" className="suppliers-summary" aria-label="Supplier summary">
-          <div>
-            <span>Total Suppliers</span>
-            <strong>{summary.total}</strong>
-          </div>
-          <div>
-            <span>Active</span>
-            <strong>{summary.active}</strong>
-          </div>
-          <div>
-            <span>On Hold</span>
-            <strong>{summary.onHold}</strong>
-          </div>
-          <div>
-            <span>Inactive / Archived</span>
-            <strong>{summary.inactive}</strong>
-          </div>
-        </Card>
+        <BentoGrid className="suppliers-summary operational-summary" columns={6} gap="standard" aria-label="Supplier summary">
+          <MetricCard className="bento-span-2" label="Total Suppliers" value={summary.total} icon={<Truck />} />
+          <MetricCard className="bento-span-2" label="Active" value={summary.active} tone="success" />
+          <MetricCard className="bento-span-2" label="On Hold" value={summary.onHold} tone={summary.onHold > 0 ? 'warning' : 'default'} />
+          <MetricCard className="bento-span-2" label="Inactive / Archived" value={summary.inactive} />
+        </BentoGrid>
 
-        <Card padding="default" className="suppliers-resource-card">
-          <div className="suppliers-toolbar">
+        <BentoCard
+          className="suppliers-resource-card operational-table-card"
+          variant="table"
+          padding="standard"
+          eyebrow="Master data"
+          title="Supplier Directory"
+          description={`${filteredSuppliers.length} of ${suppliers.length} suppliers shown.`}
+        >
+          <div className="suppliers-toolbar operational-toolbar">
             <Input
               label="Search"
               type="search"
@@ -409,14 +410,14 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
           </div>
 
           {loading ? (
-            <div className="suppliers-loading" role="status" aria-live="polite">
+            <div className="suppliers-loading operational-state" role="status" aria-live="polite">
               <Spinner size="md" label="Loading suppliers" />
               <span>Loading suppliers...</span>
             </div>
           ) : null}
 
           {error && !loading ? (
-            <div className="suppliers-state">
+            <div className="suppliers-state operational-state operational-state--block">
               <Alert variant="error" title="Unable to load suppliers.">
                 Check your connection and try again.
               </Alert>
@@ -431,8 +432,8 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
               title="No suppliers yet."
               description="Add your first supplier to begin managing vendor records."
               action={
-                <Button variant="primary" onClick={openCreateModal}>
-                  + Add Supplier
+                <Button variant="primary" onClick={openCreateModal} iconStart={<Plus />}>
+                  Add Supplier
                 </Button>
               }
             />
@@ -451,8 +452,8 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
           ) : null}
 
           {!loading && !error && hasFilteredSuppliers ? (
-            <div className="suppliers-table-wrap">
-              <table className="suppliers-table">
+            <div className="suppliers-table-wrap operational-table-wrap">
+              <table className="suppliers-table operational-table">
                 <thead>
                   <tr>
                     <th scope="col">Supplier</th>
@@ -461,7 +462,7 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
                     <th scope="col">Phone</th>
                     <th scope="col">Status</th>
                     <th scope="col">Updated</th>
-                    <th scope="col" className="suppliers-actions-heading">
+                    <th scope="col" className="suppliers-actions-heading operational-actions-heading">
                       Actions
                     </th>
                   </tr>
@@ -492,22 +493,24 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
                       </td>
                       <td>{formatDate(supplier.updatedAt)}</td>
                       <td>
-                        <div className="suppliers-row-actions">
+                        <div className="suppliers-row-actions operational-row-actions">
                           <Button
                             variant="ghost"
                             aria-label={`Edit ${supplier.name}`}
                             onClick={() => openEditModal(supplier)}
+                            iconStart={<Pencil />}
                           >
                             Edit
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="danger"
                             aria-label={`Delete ${supplier.name}`}
                             onClick={() => {
                               setDeleteConfirm(supplier);
                               setDeleteError(null);
                               setSuccessMessage(null);
                             }}
+                            iconStart={<Trash2 />}
                           >
                             Delete
                           </Button>
@@ -519,7 +522,7 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
               </table>
             </div>
           ) : null}
-        </Card>
+        </BentoCard>
 
         <Modal
           open={modalOpen}
@@ -546,10 +549,10 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
             </>
           }
         >
-          <form id="supplier-form" className="suppliers-form" onSubmit={handleSubmit}>
-            <fieldset className="suppliers-form-section">
-              <legend>General Information</legend>
-              <div className="suppliers-form-grid">
+          <form id="supplier-form" className="suppliers-form operational-form" onSubmit={handleSubmit}>
+            <fieldset className="suppliers-form-section operational-form-section">
+              <legend>Supplier Information</legend>
+              <div className="suppliers-form-grid operational-form-grid">
                 <Input
                   label="Supplier Name"
                   value={formData.name}
@@ -579,9 +582,9 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
               </div>
             </fieldset>
 
-            <fieldset className="suppliers-form-section">
+            <fieldset className="suppliers-form-section operational-form-section">
               <legend>Contact Information</legend>
-              <div className="suppliers-form-grid">
+              <div className="suppliers-form-grid operational-form-grid">
                 <Input
                   label="Email"
                   type="email"
@@ -602,27 +605,27 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
                   value={formData.website}
                   onChange={(event) => updateForm('website', event.target.value)}
                   placeholder="https://example.com"
-                  className="suppliers-form-span"
+                  className="suppliers-form-span operational-form-span"
                 />
               </div>
             </fieldset>
 
-            <fieldset className="suppliers-form-section">
+            <fieldset className="suppliers-form-section operational-form-section">
               <legend>Address</legend>
-              <div className="suppliers-form-grid">
+              <div className="suppliers-form-grid operational-form-grid">
                 <Input
                   label="Address Line 1"
                   value={formData.addressLine1}
                   onChange={(event) => updateForm('addressLine1', event.target.value)}
                   placeholder="Street address"
-                  className="suppliers-form-span"
+                  className="suppliers-form-span operational-form-span"
                 />
                 <Input
                   label="Address Line 2"
                   value={formData.addressLine2}
                   onChange={(event) => updateForm('addressLine2', event.target.value)}
                   placeholder="Apartment, suite, etc."
-                  className="suppliers-form-span"
+                  className="suppliers-form-span operational-form-span"
                 />
                 <Input
                   label="City"
@@ -651,7 +654,7 @@ export default function SuppliersPage({ userEmail, onLogout, onNavigate }: Dashb
               </div>
             </fieldset>
 
-            <fieldset className="suppliers-form-section">
+            <fieldset className="suppliers-form-section operational-form-section">
               <legend>Notes</legend>
               <Textarea
                 label="Notes"

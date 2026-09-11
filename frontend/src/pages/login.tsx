@@ -1,15 +1,21 @@
 import { useState, type FormEvent } from 'react';
-import { Alert, Button, Input } from '../components/ui';
-import '../styles/login.css';
+import { AlertCircle, Eye, EyeOff, LoaderCircle, LockKeyhole, UserRound } from 'lucide-react';
+import AuthLayout from '../components/auth/AuthLayout';
+import { Alert, AlertDescription, AlertTitle } from '../components/shadcn/ui/alert';
+import { Button } from '../components/shadcn/ui/button';
+import { Card } from '../components/shadcn/ui/card';
+import { Input } from '../components/shadcn/ui/input';
+import { Label } from '../components/shadcn/ui/label';
 import type { AuthResponse } from '../types/auth';
 
 type LoginProps = {
+  onBackHome: () => void;
   onAuthenticated: (auth: AuthResponse, remember: boolean) => void;
 };
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
-export default function Login({ onAuthenticated }: LoginProps) {
+export default function Login({ onAuthenticated, onBackHome }: LoginProps) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
@@ -58,59 +64,108 @@ export default function Login({ onAuthenticated }: LoginProps) {
   };
 
   const passwordType = showPassword ? 'text' : 'password';
+  const loginError =
+    error === 'Failed to fetch' || error === 'Unable to reach the server'
+      ? 'Unable to reach the server. Please try again.'
+      : error;
 
   return (
-    <main className="login-page">
-      <section className="login-shell" aria-label="Authentication">
-        <aside className="login-side-panel" aria-label="Sales and Inventory access">
-          <div className="login-brand">
-            <span className="login-brand__mark" aria-hidden="true">SI</span>
-            <div>
-              <p className="login-brand__name">Sales &amp; Inventory</p>
-              <p className="login-brand__subtitle">Predictive Analysis</p>
-            </div>
-          </div>
-          <ol className="login-progress" aria-hidden="true">
-            <li className="is-active"><span className="login-progress__marker">1</span><span><strong>Account Access</strong><small>Sign in securely</small></span></li>
-            <li><span className="login-progress__marker">2</span><span><strong>Workspace</strong><small>Manage operations</small></span></li>
-            <li><span className="login-progress__marker">3</span><span><strong>Operations</strong><small>Work with business records</small></span></li>
-          </ol>
-          <p className="login-side-meta">Sales &amp; Inventory System</p>
-        </aside>
-
-        <div className="login-form-panel">
-          <div className="login-mobile-brand" aria-label="Sales and Inventory">
-            <span className="login-brand__mark" aria-hidden="true">SI</span>
-            <div><p className="login-brand__name">Sales &amp; Inventory</p><p className="login-brand__subtitle">Predictive Analysis</p></div>
-          </div>
-          <div className="login-card" aria-live="polite">
-            <div className="login-progress-dots" aria-hidden="true"><span className="is-active" /><span /><span /></div>
-            <div className="login-form-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M6.75 10.5V8a5.25 5.25 0 0 1 10.5 0v2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><rect x="4.75" y="10.5" width="14.5" height="9" rx="2.25" stroke="currentColor" strokeWidth="1.8" /><path d="M12 14v2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
-            </div>
-            <div className="login-card__header">
-              <p className="login-card__eyebrow">Internal account access</p>
-              <h1>Welcome back</h1>
-              <p>Sign in to access the Sales &amp; Inventory System.</p>
-            </div>
-            <form className="login-form" onSubmit={handleSubmit} noValidate>
-              <Input id="auth-identifier" label="Email or Username" type="text" value={identifier} onChange={(event) => { setIdentifier(event.target.value); setError(''); }} autoComplete="username" placeholder="name@company.com" required disabled={isLoading} />
-              <div className="login-password-field">
-                <label className="login-password-field__label" htmlFor="auth-password">Password <span aria-hidden="true">*</span></label>
-                <div className="login-password-control">
-                  <input id="auth-password" className="ui-input" type={passwordType} value={password} onChange={(event) => { setPassword(event.target.value); setError(''); }} autoComplete="current-password" placeholder="Enter your password" required disabled={isLoading} />
-                  <button type="button" className="login-password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((current) => !current)} disabled={isLoading}>{showPassword ? 'Hide' : 'Show'}</button>
-                </div>
-              </div>
-              <label className="login-remember"><input type="checkbox" checked={remember} onChange={(event) => setRemember(event.target.checked)} disabled={isLoading} /><span>Remember me</span></label>
-              {error ? <Alert variant="error" title="Authentication error">{error}</Alert> : null}
-              <Button type="submit" variant="primary" loading={isLoading} disabled={isLoading} className="login-submit">{isLoading ? 'Signing in...' : 'Sign In'}</Button>
-            </form>
-            <p className="login-account-note">Accounts are managed by the system administrator.</p>
-          </div>
-          <p className="login-panel-meta">Secure account access</p>
+    <AuthLayout
+      panelLabel="Authentication"
+      eyebrow="Operations workspace"
+      title="King of Clouds"
+      description="Centralized business operations with inventory monitoring, sales analytics, and predictive demand forecasting."
+      supportingLine="Smarter stock decisions powered by real sales data."
+      mode="login"
+      onBackHome={onBackHome}
+    >
+      <Card className="auth-card" aria-live="polite">
+        <div className="auth-card__header">
+          <p className="auth-card__eyebrow">Internal account access</p>
+          <h2 className="auth-card__title">Welcome back</h2>
+          <p className="auth-card__description">Sign in to continue to your workspace.</p>
         </div>
-      </section>
-    </main>
+
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <div className="auth-field">
+            <Label className="auth-label" htmlFor="auth-identifier">Email or username</Label>
+            <div className="auth-input-wrap">
+              <UserRound className="auth-input-icon" aria-hidden="true" />
+              <Input
+                id="auth-identifier"
+                className="auth-input"
+                type="text"
+                value={identifier}
+                onChange={(event) => {
+                  setIdentifier(event.target.value);
+                  setError('');
+                }}
+                autoComplete="username"
+                placeholder="name@company.com"
+                required
+                disabled={isLoading}
+                aria-invalid={Boolean(error && !identifier.trim()) || undefined}
+              />
+            </div>
+          </div>
+
+          <div className="auth-field">
+            <Label className="auth-label" htmlFor="auth-password">Password</Label>
+            <div className="auth-input-wrap">
+              <LockKeyhole className="auth-input-icon" aria-hidden="true" />
+              <Input
+                id="auth-password"
+                className="auth-input auth-password-input"
+                type={passwordType}
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  setError('');
+                }}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                required
+                disabled={isLoading}
+                aria-invalid={Boolean(error && !password) || undefined}
+              />
+              <button
+                type="button"
+                className="auth-password-toggle"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                onClick={() => setShowPassword((current) => !current)}
+                disabled={isLoading}
+              >
+                {showPassword ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+              </button>
+            </div>
+          </div>
+
+          <label className="auth-checkbox">
+            <input
+              type="checkbox"
+              checked={remember}
+              onChange={(event) => setRemember(event.target.checked)}
+              disabled={isLoading}
+            />
+            <span>Remember me</span>
+          </label>
+
+          {error ? (
+            <Alert className="auth-alert" variant="destructive">
+              <AlertCircle aria-hidden="true" />
+              <AlertTitle>Authentication error</AlertTitle>
+              <AlertDescription>{loginError}</AlertDescription>
+            </Alert>
+          ) : null}
+
+          <Button type="submit" className="auth-submit" disabled={isLoading}>
+            {isLoading ? <LoaderCircle className="auth-submit-spinner" aria-hidden="true" /> : null}
+            {isLoading ? 'Signing in...' : 'Sign In'}
+          </Button>
+        </form>
+
+        <p className="auth-footer-note">Having trouble signing in? Contact your administrator.</p>
+      </Card>
+    </AuthLayout>
   );
 }

@@ -1,0 +1,15 @@
+.public-home { min-height: 100dvh; background: var(--color-bg); color: var(--color-text); }
+.public-home__header { max-width: 1240px; margin: auto; padding: 20px 32px; display: flex; align-items: center; justify-content: space-between; color: var(--color-text-muted); }
+.public-home__intro { min-height: min(640px, 65dvh); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 24px 32px 48px; text-align: center; }
+.public-home__intro h1 { max-width: 800px; font-size: 40px; line-height: 1.15; letter-spacing: 0; }
+.public-home__descriptor { color: var(--color-primary); font-weight: 600; }
+.public-home__summary { max-width: 620px; font-size: 18px; line-height: 1.6; color: var(--color-text-secondary); }
+.public-home__intro .ui-button { min-width: 144px; gap: 16px; }
+.public-home__access { color: var(--color-text-muted); font-size: var(--text-meta); }
+.public-home__capabilities { max-width: 1176px; margin: 0 auto; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; padding: 24px 0 40px; border-top: 1px solid var(--color-border-subtle); }
+.public-home__capabilities article { padding: 20px; border: 1px solid var(--color-border-subtle); border-radius: 8px; background: var(--color-surface); }
+.public-home__capabilities svg { color: var(--color-primary); margin-bottom: 16px; }
+.public-home__capabilities h2 { font-size: 16px; margin-bottom: 8px; }
+.public-home__capabilities p { color: var(--color-text-secondary); line-height: 1.6; }
+@media (max-width: 1240px) { .public-home__capabilities { margin-inline: 32px; } }
+@media (max-width: 1023px) { .public-home__intro h1 { font-size: 32px; } .public-home__capabilities { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

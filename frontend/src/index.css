@@ -1,5 +1,39 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@fontsource/geist/400.css';
+@import '@fontsource/geist/500.css';
+@import '@fontsource/geist/600.css';
+@import '@fontsource/geist/700.css';
 @import './styles/tokens.css';
 @import './styles/ui.css';
+@import './components/layout/layout.css';
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
 
 *,
 *::before,
@@ -8,6 +42,26 @@
 }
 
 :root {
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-primary);
+  --primary-foreground: var(--color-text-inverse);
+  --secondary: var(--color-surface-subtle);
+  --secondary-foreground: var(--color-text);
+  --muted: var(--color-surface-subtle);
+  --muted-foreground: var(--color-text-muted);
+  --accent: var(--color-surface-subtle);
+  --accent-foreground: var(--color-text);
+  --destructive: var(--color-danger);
+  --border: var(--color-border);
+  --input: var(--color-surface-subtle);
+  --ring: var(--color-border-focus);
+  --radius: var(--radius-card);
+
   font: var(--text-body) / var(--line-body) var(--font-sans);
   color: var(--color-text);
   background: var(--color-bg);
@@ -31,6 +85,15 @@ body {
   min-height: 100svh;
   background: var(--color-bg);
   color: var(--color-text);
+}
+
+::selection {
+  background: rgba(91, 183, 242, 0.28);
+  color: var(--color-text);
+}
+
+* {
+  scrollbar-color: var(--color-border-strong) var(--color-bg-subtle);
 }
 
 h1,
@@ -74,8 +137,13 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: none;
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 2px;
   box-shadow: var(--focus-ring);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-slot="sheet-content"], [data-slot="sheet-overlay"] { transition: none !important; }
 }
 
 code,

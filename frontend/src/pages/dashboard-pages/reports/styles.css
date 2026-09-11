@@ -2,63 +2,47 @@
   --page-bg: var(--color-bg);
   --page-border: var(--color-border);
   --page-accent: var(--color-primary);
-  --page-accent-rgb: 15, 118, 110;
+  --page-accent-rgb: 91, 183, 242;
   --page-accent-soft: var(--color-primary-subtle);
 }
 
 .reports-page {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-5);
+  width: min(100%, 1680px);
+  margin-inline: auto;
 }
 
-.reports-header {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-4);
+.reports-bento {
+  align-items: start;
+  --bento-columns: 12;
+  grid-auto-flow: row;
 }
 
-.reports-header h1,
-.reports-header p,
-.reports-eyebrow,
-.reports-period span,
-.reports-period strong,
-.reports-period small,
-.reports-section-head h2,
-.reports-section-head span,
-.reports-chart figcaption,
-.reports-table-block h3 {
-  margin: 0;
-}
+.reports-bento > :is(.reports-top-products-card, .reports-inventory-health-card) { align-self: stretch; }
+.reports-bento > .reports-inventory-health-card { align-content: center; }
+.reports-top-products-card > .bento-card__content,
+.reports-inventory-health-card > .bento-card__content { display: grid; align-content: start; gap: 16px; }
 
-.reports-header h1 {
-  color: var(--color-text);
-  font-size: var(--text-page-title);
-  line-height: var(--line-tight);
-}
-
-.reports-header p,
-.reports-section-head span,
-.reports-chart figcaption {
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  line-height: var(--line-body);
-}
-
-.reports-eyebrow,
-.reports-summary-grid span,
-.reports-period span,
-.reports-table th {
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.2;
-  text-transform: uppercase;
+.reports-bento > .reports-primary-sales,
+.reports-bento > .reports-sales-metric { grid-column: span 4; }
+.reports-bento > .reports-state { grid-column: 1 / -1; }
+.reports-forecast-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.reports-forecast-metrics > .metric-card { grid-column: auto; }
+@media (max-width: 1100px) {
+  .reports-bento.bento-grid { --bento-columns: 12; }
+  .reports-bento > .reports-primary-sales,
+  .reports-bento > .reports-sales-metric { grid-column: span 6; }
+  .reports-forecast-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .reports-filter-card,
-.reports-section {
-  display: grid;
+.reports-sales-trend,
+.reports-top-products-card,
+.reports-inventory-health-card,
+.reports-inventory-attention,
+.reports-predictive-summary,
+.reports-forecast-attention {
   gap: var(--space-4);
 }
 
@@ -75,79 +59,91 @@
   gap: var(--space-2);
 }
 
-.reports-state {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-3);
-  color: var(--color-text-secondary);
+.reports-period .surface-header__title {
+  font-size: 16px;
 }
 
-.reports-period {
+.reports-primary-sales {
+  min-height: 110px;
+  border-color: var(--color-primary-border);
+  background:
+    linear-gradient(135deg, rgba(91, 183, 242, 0.14), transparent 48%),
+    var(--bento-card, var(--color-surface));
+}
+
+.reports-primary-sales .surface-header__title { font-size: 14px; }
+
+.reports-primary-sales > .bento-card__content {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.reports-primary-sales > .bento-card__content > strong {
+  color: var(--color-text);
+  font-size: 32px;
+  font-weight: 750;
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.reports-primary-sales__meta,
+.reports-inventory-summary,
+.reports-badge-stack {
   display: flex;
   flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.reports-primary-sales__meta span,
+.reports-inventory-summary span {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3);
+  min-height: 30px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: var(--line-body);
+}
+
+.reports-primary-sales__meta svg {
+  width: 16px;
+  height: 16px;
+  color: var(--color-primary);
+}
+
+.reports-section-divider {
+  padding-block: var(--space-2);
+}
+
+.reports-section-divider .surface-header {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.reports-forecast-metrics {
+  align-items: start;
+}
+
+.reports-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: fit-content;
+  min-height: 42px;
+  padding: var(--space-4);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-card);
   background: var(--color-surface);
-}
-
-.reports-period strong {
-  color: var(--color-text);
-}
-
-.reports-period small {
   color: var(--color-text-secondary);
-  font-size: 13px;
+  font-size: 14px;
 }
 
-.reports-section-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.reports-section-head h2 {
-  margin-top: var(--space-1);
-  color: var(--color-text);
-  font-size: var(--text-section-title);
-  line-height: var(--line-tight);
-}
-
-.reports-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-
-.reports-summary-grid--sales,
-.reports-summary-grid--forecast {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.reports-summary-grid article {
-  display: grid;
-  align-content: start;
-  gap: var(--space-1);
-  min-width: 0;
-  padding: var(--space-3);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-card);
-  background: var(--color-surface-subtle);
-}
-
-.reports-summary-grid strong {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  color: var(--color-text);
-  font-size: 20px;
-  line-height: 1.15;
-}
-
-.reports-summary-grid .ui-badge {
-  justify-self: start;
+.reports-state .ui-alert {
+  width: 100%;
 }
 
 .reports-chart {
@@ -213,6 +209,11 @@
   fill: var(--color-text-muted);
   font-size: 12px;
 }
+
+.reports-chart .reports-top-products__value,
+.reports-chart .reports-inventory-health__value { fill: var(--color-text-inverse); }
+.reports-chart .reports-top-products__value--outside,
+.reports-chart .reports-inventory-health__value--outside { fill: var(--color-text); }
 
 .reports-chart__y-label,
 .reports-top-products__x-label {
@@ -334,16 +335,6 @@
   fill: var(--color-text);
 }
 
-.reports-table-block {
-  display: grid;
-  gap: var(--space-3);
-}
-
-.reports-table-block h3 {
-  color: var(--color-text);
-  font-size: 16px;
-}
-
 .reports-table-wrap {
   width: 100%;
   overflow-x: auto;
@@ -372,6 +363,11 @@
 
 .reports-table th {
   background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -390,58 +386,20 @@
   color: var(--color-text);
 }
 
-.reports-table td span {
+.reports-table td span:not(.ui-badge) {
   display: block;
   margin-top: 3px;
   color: var(--color-text-muted);
   font-size: 12px;
 }
 
-.reports-badge-stack {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
-@media (max-width: 1120px) {
-  .reports-summary-grid,
-  .reports-summary-grid--sales,
-  .reports-summary-grid--forecast {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+@media (max-width: 1279px) {
+  .reports-top-products-card,
+  .reports-inventory-health-card {
+    grid-column: 1 / -1;
   }
 
   .reports-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 700px) {
-  .reports-header,
-  .reports-section-head {
-    flex-direction: column;
-  }
-
-  .reports-filters,
-  .reports-summary-grid,
-  .reports-summary-grid--sales,
-  .reports-summary-grid--forecast {
-    grid-template-columns: 1fr;
-  }
-
-  .reports-filter-actions,
-  .reports-filter-actions .ui-button {
-    width: 100%;
-  }
-
-  .reports-table-wrap {
-    margin-inline: calc(var(--space-4) * -1);
-    width: calc(100% + var(--space-8));
-    border-inline: 0;
-    border-radius: 0;
-  }
-
-  .reports-chart__zero-note {
-    right: var(--space-3);
-    left: var(--space-3);
   }
 }

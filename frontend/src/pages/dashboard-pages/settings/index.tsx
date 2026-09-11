@@ -1,10 +1,11 @@
 import { useState, type FormEvent } from 'react';
+import { KeyRound } from 'lucide-react';
+import { BentoCard } from '../../../components/layout';
 import PageHeader from '../../../components/PageHeader';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   Input,
 } from '../../../components/ui';
 import AppShell from '../../../layouts/AppShell';
@@ -42,7 +43,8 @@ const statusVariants: Record<UserStatus, 'success' | 'warning' | 'danger'> = {
 };
 
 const systemFacts = [
-  { label: 'Application', value: 'Sales and Inventory System' },
+  { label: 'Application', value: 'KING OF CLOUDS VAPE SHOP' },
+  { label: 'System', value: 'Inventory, Sales & Forecasting Management' },
   { label: 'Currency', value: 'Philippine Peso (PHP)' },
   { label: 'Business Timezone', value: 'Asia/Manila' },
   { label: 'Forecast Method', value: 'Moving Average' },
@@ -146,11 +148,11 @@ export default function AccountSystemPage({
         <PageHeader
           eyebrow="Account"
           title="Account & System"
-          description="View your account information and system configuration."
+          description="Review your account details and application information."
         />
 
         <div className="settings-grid">
-          <Card padding="default" className="settings-card">
+          <BentoCard padding="standard" className="settings-card">
             <div className="settings-card__header">
               <div>
                 <p className="settings-eyebrow">Account</p>
@@ -185,28 +187,9 @@ export default function AccountSystemPage({
                 <dd>{user ? statusLabels[user.status] : '-'}</dd>
               </div>
             </dl>
-          </Card>
+          </BentoCard>
 
-          <Card padding="default" className="settings-card">
-            <div className="settings-card__header">
-              <div>
-                <p className="settings-eyebrow">Read-only configuration</p>
-                <h2>System Information</h2>
-              </div>
-            </div>
-
-            <dl className="settings-facts">
-              {systemFacts.map((fact) => (
-                <div key={fact.label}>
-                  <dt>{fact.label}</dt>
-                  <dd>{fact.value}</dd>
-                </div>
-              ))}
-            </dl>
-          </Card>
-        </div>
-
-        <Card padding="default" className="settings-card settings-password-card">
+        <BentoCard padding="standard" className="settings-card settings-password-card">
           <div className="settings-card__header">
             <div>
               <p className="settings-eyebrow">Security</p>
@@ -265,11 +248,29 @@ export default function AccountSystemPage({
               minLength={MIN_PASSWORD_LENGTH}
               required
             />
-            <Button type="submit" loading={submitting}>
+            <Button type="submit" iconStart={<KeyRound size={16} />} loading={submitting}>
               Change Password
             </Button>
           </form>
-        </Card>
+        </BentoCard>
+        </div>
+          <BentoCard padding="standard" className="settings-card settings-system-card">
+            <div className="settings-card__header">
+              <div>
+                <p className="settings-eyebrow">Read-only configuration</p>
+                <h2>System Information</h2>
+              </div>
+            </div>
+
+            <dl className="settings-facts">
+              {systemFacts.map((fact) => (
+                <div key={fact.label}>
+                  <dt>{fact.label}</dt>
+                  <dd>{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </BentoCard>
       </section>
     </AppShell>
   );

@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { ArrowLeftRight, Boxes, RefreshCw, SlidersHorizontal, Warehouse } from 'lucide-react';
+import PageHeader from '../../../components/PageHeader';
+import { BentoCard } from '../../../components/layout/BentoCard';
+import { BentoGrid } from '../../../components/layout/BentoGrid';
+import { MetricCard } from '../../../components/layout/MetricCard';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   ConfirmDialog,
   EmptyState,
   Input,
@@ -284,11 +288,11 @@ export default function InventoryPage({
 
   const summary = useMemo(() => ({
     total: records.length,
-    lowCritical: records.filter(
-      (record) => record.stockHealth === 'LOW' || record.stockHealth === 'CRITICAL',
-    ).length,
     out: records.filter((record) => record.stockHealth === 'OUT_OF_STOCK').length,
+    critical: records.filter((record) => record.stockHealth === 'CRITICAL').length,
+    low: records.filter((record) => record.stockHealth === 'LOW').length,
     healthy: records.filter((record) => record.stockHealth === 'HEALTHY').length,
+    unconfigured: records.filter((record) => record.stockHealth === 'UNCONFIGURED').length,
   }), [records]);
 
   function openAdjust(record: InventoryRecord) {
@@ -369,42 +373,40 @@ export default function InventoryPage({
       onNavigate={onNavigate}
       className="dashboard-page dashboard-page--inventory"
     >
-      <section className="inventory-page" aria-label="Inventory workspace">
-        <header className="inventory-header">
-          <div>
-            <p className="inventory-eyebrow">Stock control</p>
-            <h1>Inventory</h1>
-            <p>
-              {canAdjust
-                ? 'Monitor current product stock and manage inventory adjustments.'
-                : 'View current product stock availability.'}
-            </p>
-          </div>
-          <Button variant="secondary" onClick={loadInventory} disabled={loading}>
-            Refresh
-          </Button>
-        </header>
+      <section className="inventory-page operational-page" aria-label="Inventory workspace">
+        <PageHeader
+          eyebrow="Stock control"
+          title="Inventory"
+          description="Monitor current stock levels, health status, and adjustments."
+          secondaryActions={(
+            <Button variant="secondary" onClick={loadInventory} disabled={loading} iconStart={<RefreshCw />}>
+              Refresh
+            </Button>
+          )}
+        />
 
         {notice ? <Alert variant="success" title="Updated">{notice}</Alert> : null}
 
         {!loading && !error ? (
-          <section className="inventory-summary" aria-label="Inventory summary">
-            {[
-              ['Total Products', summary.total],
-              ['Low / Critical', summary.lowCritical],
-              ['Out of Stock', summary.out],
-              ['Healthy', summary.healthy],
-            ].map(([label, value]) => (
-              <article key={label}>
-                <span>{label}</span>
-                <strong>{value}</strong>
-              </article>
-            ))}
-          </section>
+          <BentoGrid className="inventory-summary operational-summary" columns={6} gap="standard" aria-label="Inventory summary">
+            <MetricCard className="bento-span-2" label="Out of Stock" value={summary.out} tone={summary.out > 0 ? 'danger' : 'success'} icon={<Warehouse />} />
+            <MetricCard className="bento-span-2" label="Critical" value={summary.critical} tone={summary.critical > 0 ? 'danger' : 'success'} />
+            <MetricCard className="bento-span-2" label="Low" value={summary.low} tone={summary.low > 0 ? 'warning' : 'success'} />
+            <MetricCard className="bento-span-2" label="Healthy" value={summary.healthy} tone="success" />
+            <MetricCard className="bento-span-2" label="Not Configured" value={summary.unconfigured} />
+            <MetricCard className="bento-span-2" label="Total Products" value={summary.total} icon={<Boxes />} />
+          </BentoGrid>
         ) : null}
 
-        <Card padding="default" className="inventory-card">
-          <div className="inventory-toolbar">
+        <BentoCard
+          className="inventory-card operational-table-card"
+          variant="table"
+          padding="standard"
+          eyebrow="Current inventory"
+          title="Stock Register"
+          description={`${filtered.length} of ${records.length} inventory records shown.`}
+        >
+          <div className="inventory-toolbar operational-toolbar">
             <Input
               label="Search"
               type="search"
@@ -456,14 +458,14 @@ export default function InventoryPage({
           </div>
 
           {loading ? (
-            <div className="inventory-state">
+            <div className="inventory-state operational-state">
               <Spinner size="md" label="Loading inventory" />
               <span>Loading inventory...</span>
             </div>
           ) : null}
 
           {error && !loading ? (
-            <div className="inventory-state">
+            <div className="inventory-state operational-state operational-state--block">
               <Alert variant="error" title="Unable to load inventory">{error}</Alert>
               <Button variant="secondary" onClick={loadInventory}>Retry</Button>
             </div>
@@ -484,8 +486,8 @@ export default function InventoryPage({
           ) : null}
 
           {!loading && !error && filtered.length ? (
-            <div className="inventory-table-wrap">
-              <table className="inventory-table">
+            <div className="inventory-table-wrap operational-table-wrap">
+              <table className="inventory-table operational-table">
                 <thead>
                   <tr>
                     <th>Product</th>
@@ -498,7 +500,7 @@ export default function InventoryPage({
                     <th>Stock Health</th>
                     <th>Recommended Reorder</th>
                     <th>Updated</th>
-                    <th>Actions</th>
+                    <th className="operational-actions-heading">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -525,11 +527,12 @@ export default function InventoryPage({
                       <td>{recommendedReorderLabel(record)}</td>
                       <td>{formatDate(record.updatedAt)}</td>
                       <td>
-                        <div className="inventory-actions">
+                        <div className="inventory-actions operational-row-actions">
                           <Button
                             variant="ghost"
                             aria-label={`View ${record.name} inventory`}
                             onClick={() => void loadDetail(record.productId)}
+                            iconStart={<ArrowLeftRight />}
                           >
                             View
                           </Button>
@@ -538,6 +541,7 @@ export default function InventoryPage({
                               variant="ghost"
                               aria-label={`Adjust ${record.name} stock`}
                               onClick={() => openAdjust(record)}
+                              iconStart={<SlidersHorizontal />}
                             >
                               Adjust Stock
                             </Button>
@@ -550,7 +554,7 @@ export default function InventoryPage({
               </table>
             </div>
           ) : null}
-        </Card>
+        </BentoCard>
       </section>
 
       <Modal
@@ -566,15 +570,15 @@ export default function InventoryPage({
         width="820px"
       >
         {detailLoading ? (
-          <div className="inventory-state">
+            <div className="inventory-state operational-state">
             <Spinner size="md" label="Loading inventory detail" />
           </div>
         ) : detailError ? (
           <Alert variant="error" title="Unable to load inventory">{detailError}</Alert>
         ) : detail ? (
-          <div className="inventory-detail">
-            <h3>Inventory Status</h3>
-            <div className="inventory-detail__facts">
+            <div className="inventory-detail">
+              <h3>Inventory Status</h3>
+            <div className="inventory-detail__facts operational-detail-grid">
               <span>SKU<strong>{detail.sku}</strong></span>
               <span>Category<strong>{detail.category.name}</strong></span>
               <span>Status<strong>{statusLabel(detail.status)}</strong></span>
@@ -656,7 +660,7 @@ export default function InventoryPage({
           </>
         )}
       >
-        <form id="inventory-adjustment-form" className="inventory-form" onSubmit={submitAdjustment}>
+        <form id="inventory-adjustment-form" className="inventory-form operational-form" onSubmit={submitAdjustment}>
           {adjustRecord ? (
             <div className="inventory-form__product">
               <span>Product</span>

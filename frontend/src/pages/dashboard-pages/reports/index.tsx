@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { Activity, Boxes, ChartNoAxesCombined, Package, PhilippinePeso, ReceiptText, TriangleAlert } from 'lucide-react';
+import PageHeader from '../../../components/PageHeader';
+import { BentoCard } from '../../../components/layout/BentoCard';
+import { BentoGrid } from '../../../components/layout/BentoGrid';
+import { MetricCard } from '../../../components/layout/MetricCard';
+import { PageSection } from '../../../components/layout/PageSection';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   EmptyState,
   Input,
   Spinner,
@@ -266,28 +271,34 @@ export default function ReportsPage({
       className="dashboard-page dashboard-page--reports"
     >
       <section className="reports-page" aria-label="Reports workspace">
-        <header className="reports-header">
-          <div>
-            <p className="reports-eyebrow">Business reporting</p>
-            <h1>Reports</h1>
-            <p>Review sales performance, current inventory status, and predictive inventory insights.</p>
-          </div>
-        </header>
+        <PageHeader
+          eyebrow="Business reporting"
+          title="Reports"
+          description="Review sales performance, product demand, inventory health, and predictive attention."
+        />
 
-        <Card padding="default" className="reports-filter-card">
+        <BentoGrid className="reports-bento" gap="standard" dense aria-label="Reports analytics workspace">
+        <BentoCard
+          className="reports-filter-card bento-span-full"
+          variant="form"
+          padding="standard"
+          eyebrow="Report controls"
+          title="Report Filters"
+          description="Sales metrics use the selected Manila business-date range."
+        >
           <form className="reports-filters" onSubmit={submitReport}>
-            <Input label="From Date" type="date" value={from} onChange={(event) => setFrom(event.target.value)} required />
-            <Input label="To Date" type="date" value={to} onChange={(event) => setTo(event.target.value)} required />
+            <Input label="Start Date" type="date" value={from} onChange={(event) => setFrom(event.target.value)} required />
+            <Input label="End Date" type="date" value={to} onChange={(event) => setTo(event.target.value)} required />
             <div className="reports-filter-actions">
               <Button type="submit" loading={refreshing}>
-                {refreshing ? 'Generating...' : 'Generate Report'}
+                Generate Report
               </Button>
               <Button type="button" variant="secondary" onClick={resetRange} disabled={refreshing}>
                 Reset to Last 30 Days
               </Button>
             </div>
           </form>
-        </Card>
+        </BentoCard>
 
         {loading ? (
           <section className="reports-state" role="status" aria-live="polite">
@@ -305,90 +316,115 @@ export default function ReportsPage({
 
         {report && !loading ? (
           <>
-            <section className="reports-period" aria-label="Report period">
-              <span>Sales Report Period</span>
-              <strong>{formatDate(report.period.from)} to {formatDate(report.period.to)}</strong>
-              <small>{report.period.timezone}</small>
-            </section>
+            <BentoCard
+              className="reports-period bento-span-full"
+              padding="compact"
+              variant="muted"
+              eyebrow="Sales report period"
+              title={`${formatDate(report.period.from)} to ${formatDate(report.period.to)}`}
+              description={report.period.timezone}
+            />
 
-            <Card padding="default" className="reports-section">
-              <div className="reports-section-head">
-                <div>
-                  <p className="reports-eyebrow">Sales report</p>
-                  <h2>Completed Sales</h2>
-                </div>
-              </div>
-              <div className="reports-summary-grid reports-summary-grid--sales">
-                {[
-                  ['Total Sales', money(report.sales.revenueCents)],
-                  ['Transactions', count(report.sales.transactions)],
-                  ['Units Sold', quantity(report.sales.unitsSold)],
-                  ['Average Transaction', money(report.sales.averageTransactionCents)],
-                  ['Discounts', money(report.sales.discountsCents)],
-                  ['Tax', money(report.sales.taxCents)],
-                ].map(([label, value]) => (
-                  <article key={label}>
-                    <span>{label}</span>
-                    <strong>{value}</strong>
-                  </article>
-                ))}
-              </div>
+            <BentoCard
+              className="reports-primary-sales bento-span-4"
+              padding="compact"
+              title="Total Sales"
+            >
+              <strong>{money(report.sales.revenueCents)}</strong>
+            </BentoCard>
+
+            <MetricCard className="reports-sales-metric bento-span-2" label="Transactions" value={count(report.sales.transactions)} icon={<ReceiptText />} />
+            <MetricCard className="reports-sales-metric bento-span-2" label="Units Sold" value={quantity(report.sales.unitsSold)} icon={<Package />} />
+            <MetricCard className="reports-sales-metric bento-span-2" label="Average Transaction" value={money(report.sales.averageTransactionCents)} icon={<PhilippinePeso />} />
+            <MetricCard className="reports-sales-metric bento-span-2" label="Discounts" value={money(report.sales.discountsCents)} />
+            <MetricCard className="reports-sales-metric bento-span-2" label="Tax" value={money(report.sales.taxCents)} />
+
+            <BentoCard
+              className="reports-sales-trend bento-span-full"
+              padding="analytical"
+              variant="analytical"
+              eyebrow="Sales trend"
+              title="Sales Trend"
+              description="Completed sales across the selected report period."
+            >
               <ReportSalesTrendChart points={report.salesTrend} />
+            </BentoCard>
 
-              <div className="reports-table-block">
-                <h3>Top Products</h3>
-                {!report.topProducts.length ? (
-                  <EmptyState title="No completed sales were recorded in this period." />
-                ) : (
-                  <>
-                    <TopProductsChart products={report.topProducts} />
-                    <div className="reports-table-wrap">
-                      <table className="reports-table">
-                        <thead>
-                          <tr>
-                            <th>Rank</th>
-                            <th>Product</th>
-                            <th>SKU</th>
-                            <th>Quantity Sold</th>
-                            <th>Revenue</th>
+            <BentoCard
+              className="reports-top-products-card bento-span-7"
+              padding="standard"
+              variant="analytical"
+              eyebrow="Product demand"
+              title="Top Products"
+              description="Products ranked by quantity sold during the selected period."
+            >
+              {!report.topProducts.length ? (
+                <EmptyState title="No completed sales were recorded in this period." />
+              ) : (
+                <>
+                  <TopProductsChart products={report.topProducts} />
+                  <div className="reports-table-wrap">
+                    <table className="reports-table">
+                      <thead>
+                        <tr>
+                          <th>Rank</th>
+                          <th>Product</th>
+                          <th>SKU</th>
+                          <th>Quantity Sold</th>
+                          <th>Revenue</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {report.topProducts.map((product, index) => (
+                          <tr key={product.productId}>
+                            <td>{index + 1}</td>
+                            <td><strong>{product.name}</strong></td>
+                            <td>{product.sku}</td>
+                            <td>{quantity(product.quantitySold)}</td>
+                            <td>{money(product.revenueCents)}</td>
                           </tr>
-                        </thead>
-                        <tbody>
-                          {report.topProducts.map((product, index) => (
-                            <tr key={product.productId}>
-                              <td>{index + 1}</td>
-                              <td><strong>{product.name}</strong></td>
-                              <td>{product.sku}</td>
-                              <td>{quantity(product.quantitySold)}</td>
-                              <td>{money(product.revenueCents)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </>
-                )}
-              </div>
-            </Card>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
+              )}
+            </BentoCard>
 
-            <Card padding="default" className="reports-section">
-              <div className="reports-section-head">
-                <div>
-                  <p className="reports-eyebrow">Inventory report</p>
-                  <h2>Current Inventory Snapshot</h2>
-                  <span>Inventory values reflect the current stock balance, not historical stock as of the selected report dates.</span>
-                </div>
-              </div>
-              <div className="reports-summary-grid">
+            <BentoCard
+              className="reports-inventory-health-card bento-span-5"
+              padding="standard"
+              variant="analytical"
+              eyebrow="Current inventory"
+              title="Current Inventory Health"
+              description="Current products grouped by static stock-health status."
+            >
+              <InventoryHealthChart inventory={report.inventory} />
+              <div className="reports-inventory-summary" aria-label="Current inventory status summary">
                 {inventorySummaryItems.map(({ label, value, variant }) => (
-                  <article key={label}>
-                    <span>{label}</span>
-                    <strong>{count(value)}</strong>
-                    <Badge variant={variant}>{label}</Badge>
-                  </article>
+                  <span key={label}>
+                    <Badge variant={variant}>{count(value)}</Badge>
+                    {label}
+                  </span>
                 ))}
               </div>
-              <InventoryHealthChart inventory={report.inventory} />
+            </BentoCard>
+
+            <PageSection
+              className="reports-section-divider bento-span-full"
+              eyebrow="Current inventory"
+              title="Current Inventory Snapshot"
+              description="Inventory values reflect the current stock balance, not historical stock as of the selected report dates."
+            />
+
+            <BentoCard
+              className="reports-inventory-attention bento-span-full"
+              padding="standard"
+              variant="table"
+              eyebrow="Current inventory"
+              title="Inventory Attention"
+              description="Products requiring current stock review."
+            >
               {!report.inventoryAttention.length ? (
                 <EmptyState title="No current inventory items require attention." />
               ) : (
@@ -423,32 +459,42 @@ export default function ReportsPage({
                   </table>
                 </div>
               )}
-            </Card>
+            </BentoCard>
 
-            <Card padding="default" className="reports-section">
-              <div className="reports-section-head">
-                <div>
-                  <p className="reports-eyebrow">Predictive report</p>
-                  <h2>Predictive Inventory Summary</h2>
-                  <span>Forecast-assisted future risk based on latest persisted moving-average forecasts, not the selected sales period.</span>
-                </div>
-              </div>
-              <div className="reports-summary-grid reports-summary-grid--forecast">
-                {[
-                  ['Products with Forecast', report.forecast.productsWithForecast],
-                  ['Forecast Required', report.forecast.forecastRequired],
-                  ['Critical', report.forecast.critical],
-                  ['At Risk', report.forecast.atRisk],
-                  ['Stable', report.forecast.stable],
-                  ['Limited History', report.forecast.limitedHistory],
-                  ['Suggested Reorder Units', report.forecast.totalPredictiveReorderQuantity],
-                ].map(([label, value]) => (
-                  <article key={label}>
-                    <span>{label}</span>
-                    <strong>{count(value as number)}</strong>
-                  </article>
-                ))}
-              </div>
+            <PageSection
+              className="reports-section-divider bento-span-full"
+              eyebrow="Predictive analysis"
+              title="Predictive Inventory Summary"
+              description="Forecast-based stock risk across products, separate from current static stock health."
+            />
+
+            <BentoCard
+              className="reports-predictive-summary bento-span-full"
+              padding="standard"
+              variant="muted"
+              eyebrow="Predictive analysis"
+              title="Forecast Risk Overview"
+              description="Latest persisted moving-average forecast state, not the selected sales period."
+            >
+              <BentoGrid className="reports-forecast-metrics" columns={6} gap="compact">
+                <MetricCard className="bento-span-2" label="Products with Forecast" value={count(report.forecast.productsWithForecast)} icon={<ChartNoAxesCombined />} />
+                <MetricCard className="bento-span-2" label="Forecast Required" value={count(report.forecast.forecastRequired)} icon={<Activity />} />
+                <MetricCard className="bento-span-2" label="Critical" value={count(report.forecast.critical)} tone={report.forecast.critical > 0 ? 'danger' : 'success'} icon={<TriangleAlert />} />
+                <MetricCard className="bento-span-2" label="At Risk" value={count(report.forecast.atRisk)} tone={report.forecast.atRisk > 0 ? 'warning' : 'success'} icon={<TriangleAlert />} />
+                <MetricCard className="bento-span-2" label="Stable" value={count(report.forecast.stable)} tone="success" />
+                <MetricCard className="bento-span-2" label="Limited History" value={count(report.forecast.limitedHistory)} />
+                <MetricCard className="bento-span-2" label="Suggested Reorder Units" value={count(report.forecast.totalPredictiveReorderQuantity)} icon={<Boxes />} />
+              </BentoGrid>
+            </BentoCard>
+
+            <BentoCard
+              className="reports-forecast-attention bento-span-full"
+              padding="standard"
+              variant="table"
+              eyebrow="Predictive analysis"
+              title="Forecast Attention"
+              description="Forecast-based product risks that may require action."
+            >
               {!report.forecastAttention.length ? (
                 <EmptyState
                   title={
@@ -493,9 +539,10 @@ export default function ReportsPage({
                   </table>
                 </div>
               )}
-            </Card>
+            </BentoCard>
           </>
         ) : null}
+        </BentoGrid>
       </section>
     </AppShell>
   );

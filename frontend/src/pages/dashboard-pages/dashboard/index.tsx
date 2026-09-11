@@ -1,6 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  ClipboardList,
+  PackageCheck,
+  PackageX,
+  PhilippinePeso,
+  ReceiptText,
+  RefreshCw,
+  TrendingUp,
+  TriangleAlert,
+} from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
-import { Alert, Badge, Button, Card, EmptyState, Spinner } from '../../../components/ui';
+import { BentoCard } from '../../../components/layout/BentoCard';
+import { BentoGrid } from '../../../components/layout/BentoGrid';
+import { MetricCard } from '../../../components/layout/MetricCard';
+import { Alert, Badge, Button, EmptyState, Spinner } from '../../../components/ui';
 import AppShell from '../../../layouts/AppShell';
 import type {
   AdminDashboardResponse,
@@ -24,7 +37,8 @@ type KpiCard = {
   label: string;
   value: string;
   helper: string;
-  tone: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
+  tone: 'default' | 'success' | 'warning' | 'danger';
+  icon: ReactNode;
 };
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -446,34 +460,46 @@ export default function DashboardPage({ userEmail, onLogout, onNavigate }: Dashb
 
     return [
       {
-        label: "Today's Sales",
-        value: money(data.sales.todayRevenueCents),
-        helper: 'Completed sales today',
-        tone: 'success',
-      },
-      {
         label: 'Transactions Today',
         value: count(data.sales.todayTransactions),
         helper: `Average ${money(data.sales.averageTransactionCents)} per transaction`,
-        tone: 'info',
+        tone: 'default',
+        icon: <ReceiptText />,
+      },
+      {
+        label: 'Units Sold Today',
+        value: formatQuantity(data.sales.unitsSoldToday),
+        helper: 'Completed sale quantity',
+        tone: 'default',
+        icon: <PackageCheck />,
       },
       {
         label: 'Low / Critical Stock',
         value: count(data.inventory.low + data.inventory.critical),
         helper: `Critical: ${count(data.inventory.critical)} / Low: ${count(data.inventory.low)}`,
         tone: data.inventory.low + data.inventory.critical > 0 ? 'warning' : 'success',
+        icon: <TriangleAlert />,
       },
       {
         label: 'Out of Stock',
         value: count(data.inventory.outOfStock),
         helper: data.inventory.outOfStock > 0 ? 'Requires attention' : 'No items out of stock',
         tone: data.inventory.outOfStock > 0 ? 'danger' : 'success',
+        icon: <PackageX />,
       },
       {
         label: 'Open Purchase Orders',
         value: count(data.procurement.openPurchaseOrders),
         helper: `Open PO value ${money(data.procurement.openPurchaseOrderValueCents)}`,
-        tone: 'neutral',
+        tone: 'default',
+        icon: <ClipboardList />,
+      },
+      {
+        label: 'Average Transaction',
+        value: money(data.sales.averageTransactionCents),
+        helper: 'Average completed sale value',
+        tone: 'default',
+        icon: <PhilippinePeso />,
       },
     ];
   }, [data]);
@@ -491,16 +517,18 @@ export default function DashboardPage({ userEmail, onLogout, onNavigate }: Dashb
     >
       <section className="real-dashboard" aria-label="Dashboard workspace">
         <PageHeader
-          eyebrow="Operations overview"
+          eyebrow="Operations"
           title="Dashboard"
-          description="Monitor sales, inventory, procurement, and recent business activity."
+          description="Operational overview for King of Clouds Vape Shop."
           secondaryActions={
             <Button
               variant="secondary"
               onClick={() => void loadDashboardData('refresh')}
+              iconStart={<RefreshCw />}
               disabled={showInitialLoading || refreshing}
+              loading={refreshing}
             >
-              {refreshing ? 'Refreshing...' : 'Refresh'}
+              Refresh
             </Button>
           }
         />
@@ -521,81 +549,98 @@ export default function DashboardPage({ userEmail, onLogout, onNavigate }: Dashb
 
         {showDashboard && data ? (
           <>
-            <section className="real-dashboard-kpis" aria-label="Primary operational metrics">
+            <BentoGrid className="real-dashboard-bento" gap="standard" dense aria-label="Admin dashboard overview">
+
+              <BentoCard
+                className="real-dashboard-primary-sales bento-span-6"
+                padding="standard"
+                eyebrow="Today's Sales"
+                title={money(data.sales.todayRevenueCents)}
+                description={`${count(data.sales.todayTransactions)} transactions today`}
+              >
+                <div className="real-dashboard-primary-sales__meta">
+                  <span>
+                    <PackageCheck aria-hidden="true" />
+                    {formatQuantity(data.sales.unitsSoldToday)} units sold
+                  </span>
+                  <span>
+                    <PhilippinePeso aria-hidden="true" />
+                    {money(data.sales.averageTransactionCents)} average transaction
+                  </span>
+                </div>
+              </BentoCard>
+
               {kpis.map((metric) => (
-                <Card
+                <MetricCard
                   key={metric.label}
-                  padding="compact"
-                  className={`real-dashboard-kpi real-dashboard-kpi--${metric.tone}`}
-                >
-                  <p>{metric.label}</p>
-                  <strong>{metric.value}</strong>
-                  <span>{metric.helper}</span>
-                </Card>
+                  className="real-dashboard-kpi bento-span-3"
+                  label={metric.label}
+                  value={metric.value}
+                  helper={metric.helper}
+                  tone={metric.tone}
+                  icon={metric.icon}
+                />
               ))}
-            </section>
 
-            <Card padding="default" className="real-dashboard-sales">
-              <div className="real-dashboard-section-head">
-                <div>
-                  <p className="real-dashboard-kicker">Sales performance</p>
-                  <h2>7-Day Sales Trend</h2>
-                </div>
-                <span>Rolling 7 Manila calendar days</span>
-              </div>
-              <div className="real-dashboard-sales-grid">
-                <SalesTrendChart points={data.salesTrend} />
-                <div className="real-dashboard-secondary-metrics" aria-label="Secondary sales metrics">
-                  <article>
-                    <span>Rolling 7-Day Sales</span>
-                    <strong>{money(data.sales.weekRevenueCents)}</strong>
-                  </article>
-                  <article>
-                    <span>Current Month Sales</span>
-                    <strong>{money(data.sales.monthRevenueCents)}</strong>
-                  </article>
-                  <article>
-                    <span>Units Sold Today</span>
-                    <strong>{formatQuantity(data.sales.unitsSoldToday)}</strong>
-                  </article>
-                  <article>
-                    <span>Average Transaction</span>
-                    <strong>{money(data.sales.averageTransactionCents)}</strong>
-                  </article>
-                </div>
-              </div>
-            </Card>
-
-            <div className="real-dashboard-grid">
-              <Card padding="default" className="real-dashboard-inventory">
-                <div className="real-dashboard-section-head">
-                  <div>
-                    <p className="real-dashboard-kicker">Inventory attention</p>
-                    <h2>Products Needing Attention</h2>
-                    <span>Based on current stock against configured reorder thresholds.</span>
+              <BentoCard
+                className="real-dashboard-sales bento-span-8"
+                padding="analytical"
+                variant="analytical"
+                eyebrow="Sales performance"
+                title="Sales Trend"
+                description="Completed sales over the last 7 days."
+              >
+                <div className="real-dashboard-sales-grid">
+                  <SalesTrendChart points={data.salesTrend} />
+                  <div className="real-dashboard-secondary-metrics" aria-label="Secondary sales metrics">
+                    <article>
+                      <span>Rolling 7-Day Sales</span>
+                      <strong>{money(data.sales.weekRevenueCents)}</strong>
+                    </article>
+                    <article>
+                      <span>Current Month Sales</span>
+                      <strong>{money(data.sales.monthRevenueCents)}</strong>
+                    </article>
+                    <article>
+                      <span>Units Sold Today</span>
+                      <strong>{formatQuantity(data.sales.unitsSoldToday)}</strong>
+                    </article>
+                    <article>
+                      <span>Average Transaction</span>
+                      <strong>{money(data.sales.averageTransactionCents)}</strong>
+                    </article>
                   </div>
-                  {onNavigate ? (
-                    <Button variant="secondary" onClick={() => onNavigate('Inventory')}>
-                      View Inventory
-                    </Button>
-                  ) : null}
                 </div>
+              </BentoCard>
+
+              <BentoCard
+                className="real-dashboard-inventory bento-span-7"
+                padding="standard"
+                eyebrow="Inventory attention"
+                title="Inventory Attention"
+                description="Products requiring stock review."
+                action={onNavigate ? (
+                  <Button variant="secondary" onClick={() => onNavigate('Inventory')}>
+                    View Inventory
+                  </Button>
+                ) : null}
+              >
                 <StockHealthSummary inventory={data.inventory} />
                 <LowStockTable products={data.lowStockProducts} />
-              </Card>
+              </BentoCard>
 
-              <Card padding="default" className="real-dashboard-procurement">
-                <div className="real-dashboard-section-head">
-                  <div>
-                    <p className="real-dashboard-kicker">Procurement</p>
-                    <h2>Upcoming Deliveries</h2>
-                  </div>
-                  {onNavigate ? (
-                    <Button variant="secondary" onClick={() => onNavigate('Purchase Orders')}>
-                      View Purchase Orders
-                    </Button>
-                  ) : null}
-                </div>
+              <BentoCard
+                className="real-dashboard-procurement bento-span-5"
+                padding="standard"
+                eyebrow="Procurement"
+                title="Procurement"
+                description="Open purchase orders and upcoming receiving."
+                action={onNavigate ? (
+                  <Button variant="secondary" onClick={() => onNavigate('Purchase Orders')}>
+                    View Purchase Orders
+                  </Button>
+                ) : null}
+              >
                 <div className="real-dashboard-procurement-summary" aria-label="Procurement summary">
                   <article>
                     <span>Open Purchase Orders</span>
@@ -615,66 +660,63 @@ export default function DashboardPage({ userEmail, onLogout, onNavigate }: Dashb
                   </article>
                 </div>
                 <DeliveryTable deliveries={data.procurement.upcomingDeliveries} />
-              </Card>
-            </div>
+              </BentoCard>
 
-            <Card padding="default" className="real-dashboard-predictive">
-              <div className="real-dashboard-section-head">
-                <div>
-                  <p className="real-dashboard-kicker">Predictive inventory risk</p>
-                  <h2>Forecast-Assisted Inventory Outlook</h2>
-                  <span>Based on forecasted demand and current stock for active products.</span>
-                </div>
-                {onNavigate && data.predictive.forecastRequired > 0 ? (
-                  <Button variant="secondary" onClick={() => onNavigate('Forecasting')}>
-                    Open Predictive Analysis
-                  </Button>
-                ) : null}
-              </div>
-              <p className="real-dashboard-section-copy">
-                Forecast-assisted inventory outlook based on the latest moving-average forecast for each active product.
-              </p>
-              <PredictiveSummary predictive={data.predictive} />
-              <PredictiveAttentionTable predictive={data.predictive} />
-            </Card>
-
-            <Card padding="default" className="real-dashboard-activity">
-              <div className="real-dashboard-section-head">
-                <div>
-                  <p className="real-dashboard-kicker">Recent activity</p>
-                  <h2>System Activity</h2>
-                </div>
-                {onNavigate ? (
+              <BentoCard
+                className="real-dashboard-activity bento-span-6"
+                padding="standard"
+                eyebrow="Recent activity"
+                title="System Activity"
+                description="Latest audit-derived operational changes."
+                action={onNavigate ? (
                   <Button variant="secondary" onClick={() => onNavigate('Audit Logs')}>
                     View Audit Logs
                   </Button>
                 ) : null}
-              </div>
-              <ActivityList activities={data.recentActivity} />
-            </Card>
+              >
+                <ActivityList activities={data.recentActivity} />
+              </BentoCard>
 
-            {onNavigate ? (
-              <Card padding="compact" className="real-dashboard-quick-nav">
-                <div>
-                  <p className="real-dashboard-kicker">Actions</p>
-                  <h2>Operational Shortcuts</h2>
-                </div>
-                <div className="real-dashboard-quick-nav-actions">
-                  <Button variant="secondary" onClick={() => onNavigate('POS')}>
-                    Open POS
-                  </Button>
-                  <Button variant="secondary" onClick={() => onNavigate('Inventory')}>
-                    View Inventory
-                  </Button>
-                  <Button variant="secondary" onClick={() => onNavigate('Purchase Orders')}>
-                    Purchase Orders
-                  </Button>
+              <BentoCard
+                className="real-dashboard-predictive bento-span-6"
+                padding="standard"
+                eyebrow="Predictive inventory risk"
+                title="Predictive Inventory Risk"
+                description="Products at risk based on forecasted demand."
+                action={onNavigate && data.predictive.forecastRequired > 0 ? (
                   <Button variant="secondary" onClick={() => onNavigate('Forecasting')}>
-                    Predictive Analysis
+                    Open Predictive Analysis
                   </Button>
-                </div>
-              </Card>
-            ) : null}
+                ) : null}
+              >
+                <PredictiveSummary predictive={data.predictive} />
+                <PredictiveAttentionTable predictive={data.predictive} />
+              </BentoCard>
+
+              {onNavigate ? (
+                <BentoCard
+                  className="real-dashboard-quick-nav bento-span-full"
+                  padding="compact"
+                  eyebrow="Actions"
+                  title="Operational Shortcuts"
+                >
+                  <div className="real-dashboard-quick-nav-actions">
+                    <Button variant="secondary" iconStart={<ReceiptText />} onClick={() => onNavigate('POS')}>
+                      Open POS
+                    </Button>
+                    <Button variant="secondary" iconStart={<TriangleAlert />} onClick={() => onNavigate('Inventory')}>
+                      View Inventory
+                    </Button>
+                    <Button variant="secondary" iconStart={<ClipboardList />} onClick={() => onNavigate('Purchase Orders')}>
+                      Purchase Orders
+                    </Button>
+                    <Button variant="secondary" iconStart={<TrendingUp />} onClick={() => onNavigate('Forecasting')}>
+                      Predictive Analysis
+                    </Button>
+                  </div>
+                </BentoCard>
+              ) : null}
+            </BentoGrid>
           </>
         ) : null}
       </section>

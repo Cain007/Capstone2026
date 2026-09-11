@@ -1,5 +1,8 @@
 import './styles.css';
 import PageHeader from '../../../components/PageHeader';
+import { BentoCard } from '../../../components/layout/BentoCard';
+import { BentoGrid } from '../../../components/layout/BentoGrid';
+import { MetricCard } from '../../../components/layout/MetricCard';
 import AppShell from '../../../layouts/AppShell';
 import type { UserRole } from '../../../types/auth';
 
@@ -17,6 +20,7 @@ export type DashboardPageName =
   | 'User Management'
   | 'Audit Logs'
   | 'Account & System'
+  | 'Help & System Guide'
   | 'POS';
 
 type Metric = {
@@ -64,6 +68,7 @@ const pageClassNames: Record<DashboardPageName, string> = {
   'User Management': 'dashboard-page--user-management',
   'Audit Logs': 'dashboard-page--audit-logs',
   'Account & System': 'dashboard-page--settings',
+  'Help & System Guide': 'dashboard-page--help',
   POS: 'dashboard-page--pos',
 };
 
@@ -103,17 +108,19 @@ export function DashboardPageShell({
           onAction={onAction}
         />
 
-        <section className="dashboard-page-metrics" aria-label={`${title} metrics`}>
+        <BentoGrid className="dashboard-page-metrics" columns={6} gap="compact" aria-label={`${title} metrics`}>
           {metrics.map((metric) => (
-            <article className="dashboard-page-metric" key={metric.label}>
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-              <p>{metric.helper}</p>
-            </article>
+            <MetricCard
+              className="dashboard-page-metric bento-span-2"
+              key={metric.label}
+              label={metric.label}
+              value={metric.value}
+              helper={metric.helper}
+            />
           ))}
-        </section>
+        </BentoGrid>
 
-        <section className="dashboard-page-panel">
+        <BentoCard className="dashboard-page-panel" padding="standard" variant="table">
           <div className="dashboard-page-panel-head">
             <div>
               <p className="dashboard-page-eyebrow">Workspace</p>
@@ -137,7 +144,7 @@ export function DashboardPageShell({
             ))}
           </div>
           {children}
-        </section>
+        </BentoCard>
       </section>
     </AppShell>
   );

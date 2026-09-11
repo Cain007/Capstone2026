@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Eye, ReceiptText, RefreshCw } from 'lucide-react';
+import PageHeader from '../../../components/PageHeader';
+import { BentoCard, BentoGrid, MetricCard } from '../../../components/layout';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   EmptyState,
   Input,
   Modal,
@@ -203,38 +205,35 @@ export default function SalesHistoryPage({ userEmail, userRole, onLogout, onNavi
   }
 
   const title = isStaff ? 'My Sales History' : 'Sales History';
-  const description = isStaff ? 'Review your completed sales transactions.' : 'Review completed sales transactions across the system.';
+  const description = 'Review completed sales transactions and payment details.';
 
   return (
     <AppShell activePage="Sales History" userEmail={userEmail} userRole={userRole} onLogout={onLogout} onNavigate={onNavigate} className="dashboard-page dashboard-page--sales-history">
-      <section className="sales-history-page" aria-label={`${title} workspace`}>
-        <header className="sales-history-header">
-          <div>
-            <p className="sales-eyebrow">Sales ledger</p>
-            <h1>{title}</h1>
-            <p>{description}</p>
-          </div>
-          <Button variant="secondary" onClick={loadSales} disabled={loading}>Refresh</Button>
-        </header>
+      <section className="sales-history-page operational-page" aria-label={`${title} workspace`}>
+        <PageHeader
+          eyebrow="Sales ledger"
+          title={title}
+          description={description}
+          secondaryActions={<Button variant="secondary" iconStart={<RefreshCw size={16} />} onClick={loadSales} disabled={loading}>Refresh</Button>}
+        />
 
         {!loading && !error ? (
-          <section className="sales-summary" aria-label="Sales summary">
-            {[
-              ['Transactions', sales.length],
-              ['Gross Sales', money(totals.gross)],
-              ['Total Discounts', money(totals.discounts)],
-              ['Average Transaction', money(totals.average)],
-            ].map(([label, value]) => (
-              <article className="sales-summary__card" key={label}>
-                <span>{label}</span>
-                <strong>{value}</strong>
-              </article>
-            ))}
-          </section>
+          <BentoGrid className="sales-summary operational-summary" columns={12} gap="compact" aria-label="Sales summary">
+            <MetricCard className="bento-span-3" label="Transactions" value={sales.length} icon={<ReceiptText size={17} />} />
+            <MetricCard className="bento-span-3" label="Gross Sales" value={money(totals.gross)} />
+            <MetricCard className="bento-span-3" label="Total Discounts" value={money(totals.discounts)} />
+            <MetricCard className="bento-span-3" label="Average Transaction" value={money(totals.average)} />
+          </BentoGrid>
         ) : null}
 
-        <Card padding="default" className="sales-history-card">
-          <div className="sales-toolbar">
+        <BentoCard
+          variant="table"
+          padding="standard"
+          className="sales-history-card operational-table-card"
+          title="Transaction Register"
+          description={`${filteredSales.length} of ${sales.length} sales shown.`}
+        >
+          <div className="sales-toolbar operational-toolbar">
             <Input label="Search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sale number, cashier, or payment" />
             <Select label="Payment" value={paymentFilter} onChange={(event) => setPaymentFilter(event.target.value as 'ALL' | PaymentMethod)}>
               {paymentMethods.map((method) => <option value={method} key={method}>{method === 'ALL' ? 'All Payments' : paymentLabels[method]}</option>)}
@@ -256,13 +255,13 @@ export default function SalesHistoryPage({ userEmail, userRole, onLogout, onNavi
             </Select>
           </div>
 
-          {loading ? <div className="sales-state"><Spinner size="md" label="Loading sales" /><span>Loading sales...</span></div> : null}
-          {error && !loading ? <div className="sales-state"><Alert variant="error" title="Unable to load sales">{error}</Alert><Button variant="secondary" onClick={loadSales}>Retry</Button></div> : null}
+          {loading ? <div className="sales-state operational-state"><Spinner size="md" label="Loading sales" /><span>Loading sales...</span></div> : null}
+          {error && !loading ? <div className="sales-state operational-state operational-state--block"><Alert variant="error" title="Unable to load sales">{error}</Alert><Button variant="secondary" onClick={loadSales}>Retry</Button></div> : null}
           {!loading && !error && !sales.length ? <EmptyState title={isStaff ? 'You have not completed any sales yet.' : 'No sales transactions have been recorded yet.'} description="Completed POS transactions will appear here." /> : null}
           {!loading && !error && sales.length > 0 && !filteredSales.length ? <EmptyState title="No sales match your current filters." description="Adjust the search or filters to see more transactions." /> : null}
           {!loading && !error && filteredSales.length > 0 ? (
-            <div className="sales-table-wrap">
-              <table className="sales-table">
+            <div className="sales-table-wrap operational-table-wrap">
+              <table className="sales-table operational-table">
                 <thead>
                   <tr>
                     <th>Sale Number</th>
@@ -284,19 +283,19 @@ export default function SalesHistoryPage({ userEmail, userRole, onLogout, onNavi
                       <td>{date(sale.soldAt)}</td>
                       {!isStaff ? <td>{cashierName(sale.cashier)}</td> : null}
                       <td>{sale.itemCount}</td>
-                      <td>{paymentLabels[sale.paymentMethod]}</td>
+                      <td><Badge variant="neutral">{paymentLabels[sale.paymentMethod]}</Badge></td>
                       <td>{money(sale.subtotalCents)}</td>
                       <td>{money(sale.discountCents)}</td>
                       <td><strong>{money(sale.grandTotalCents)}</strong></td>
                       <td><Badge variant={statusVariant(sale.status)}>{statusLabel(sale.status)}</Badge></td>
-                      <td><Button variant="ghost" aria-label={`View ${sale.saleNumber}`} onClick={() => openDetail(sale.id)}>View</Button></td>
+                      <td><div className="operational-row-actions"><Button variant="ghost" iconStart={<Eye size={15} />} aria-label={`View ${sale.saleNumber}`} onClick={() => openDetail(sale.id)}>View</Button></div></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
           ) : null}
-        </Card>
+        </BentoCard>
       </section>
 
       <Modal
@@ -311,11 +310,11 @@ export default function SalesHistoryPage({ userEmail, userRole, onLogout, onNavi
         }}
         width="780px"
       >
-        {detailLoading ? <div className="sales-state"><Spinner size="md" label="Loading sale detail" /></div> : null}
+        {detailLoading ? <div className="sales-state operational-state"><Spinner size="md" label="Loading sale detail" /></div> : null}
         {detailError ? <Alert variant="error" title="Unable to load sale">{detailError}</Alert> : null}
         {detail ? (
           <div className="sale-detail">
-            <div className="sale-detail__meta">
+            <div className="sale-detail__meta operational-detail-grid">
               <span>Date / Time<strong>{date(detail.soldAt)}</strong></span>
               <span>Cashier<strong>{cashierName(detail.cashier)}</strong></span>
               <span>Payment<strong>{paymentLabels[detail.paymentMethod]} - {statusLabel(detail.paymentStatus)}</strong></span>
@@ -328,32 +327,34 @@ export default function SalesHistoryPage({ userEmail, userRole, onLogout, onNavi
               {detail.customerName ? <span>Customer<strong>{detail.customerName}</strong></span> : null}
             </div>
             {detail.notes ? <p className="sale-detail__notes"><strong>Notes:</strong> {detail.notes}</p> : null}
-            <table className="sale-items">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>SKU</th>
-                  <th>Unit Price</th>
-                  <th>Qty</th>
-                  <th>Discount</th>
-                  <th>Tax</th>
-                  <th>Line Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detail.items.map((item) => (
-                  <tr key={item.id}>
-                    <td>{item.productNameSnapshot}</td>
-                    <td>{item.skuSnapshot}</td>
-                    <td>{money(item.unitPriceCents)}</td>
-                    <td>{String(item.quantity)}</td>
-                    <td>{money(item.discountCents)}</td>
-                    <td>{money(item.taxCents)}</td>
-                    <td>{money(item.lineTotalCents)}</td>
+            <div className="sale-items-wrap">
+              <table className="sale-items operational-table">
+                <thead>
+                  <tr>
+                    <th>Product</th>
+                    <th>SKU</th>
+                    <th>Unit Price</th>
+                    <th>Qty</th>
+                    <th>Discount</th>
+                    <th>Tax</th>
+                    <th>Line Total</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {detail.items.map((item) => (
+                    <tr key={item.id}>
+                      <td><strong>{item.productNameSnapshot}</strong></td>
+                      <td>{item.skuSnapshot}</td>
+                      <td>{money(item.unitPriceCents)}</td>
+                      <td>{String(item.quantity)}</td>
+                      <td>{money(item.discountCents)}</td>
+                      <td>{money(item.taxCents)}</td>
+                      <td><strong>{money(item.lineTotalCents)}</strong></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             <div className="sale-detail__totals">
               <span>Subtotal<strong>{money(detail.subtotalCents)}</strong></span>
               <span>Discount<strong>-{money(detail.discountCents)}</strong></span>

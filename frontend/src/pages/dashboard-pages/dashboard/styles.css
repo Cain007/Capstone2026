@@ -2,142 +2,118 @@
   --page-bg: var(--color-bg);
   --page-border: var(--color-border);
   --page-accent: var(--color-primary);
-  --page-accent-rgb: 15, 118, 110;
+  --page-accent-rgb: 91, 183, 242;
   --page-accent-soft: var(--color-primary-subtle);
 }
 
 .real-dashboard {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-5);
+  width: min(100%, 1680px);
+  margin-inline: auto;
 }
 
-.real-dashboard-kpis {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: var(--space-3);
+.real-dashboard-bento {
+  align-items: stretch;
+  grid-auto-flow: row;
 }
 
-.real-dashboard-kpi,
-.real-dashboard-secondary-metrics article,
-.real-dashboard-procurement-summary article,
-.real-dashboard-predictive-counts article,
-.real-dashboard-predictive-support article {
-  display: grid;
-  gap: var(--space-1);
-  min-width: 0;
+.real-dashboard-bento.bento-grid { --bento-columns: 12; }
+.real-dashboard-bento > .real-dashboard-primary-sales { grid-column: span 3; grid-row: span 2; }
+.real-dashboard-bento > .real-dashboard-kpi { grid-column: span 3; }
+.real-dashboard-bento > :is(.real-dashboard-sales, .real-dashboard-inventory, .real-dashboard-predictive) { grid-column: 1 / -1; }
+.real-dashboard-bento > :is(.real-dashboard-procurement, .real-dashboard-activity) {
+  grid-column: span 6;
+  align-content: center;
+}
+.real-dashboard-inventory > .bento-card__content,
+.real-dashboard-predictive > .bento-card__content,
+.real-dashboard-procurement > .bento-card__content,
+.real-dashboard-predictive-summary { display: grid; gap: 16px; }
+.real-dashboard-procurement-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 1279px) {
+  .real-dashboard-bento > .real-dashboard-primary-sales { grid-column: 1 / -1; grid-row: auto; }
+  .real-dashboard-bento > .real-dashboard-kpi { grid-column: span 4; }
+  .real-dashboard-bento > :is(.real-dashboard-procurement, .real-dashboard-activity) { grid-column: 1 / -1; }
+}
+@media (max-width: 1100px) {
+  .real-dashboard-bento > .real-dashboard-kpi { grid-column: span 6; }
 }
 
-.real-dashboard-kpi {
-  border-top: 3px solid var(--color-border);
+.real-dashboard-primary-sales {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--color-primary-border);
+  background:
+    linear-gradient(135deg, rgba(91, 183, 242, 0.16), transparent 46%),
+    var(--bento-card, var(--color-surface));
 }
 
-.real-dashboard-kpi--success {
-  border-top-color: var(--color-success);
-}
-
-.real-dashboard-kpi--warning {
-  border-top-color: var(--color-warning);
-}
-
-.real-dashboard-kpi--danger {
-  border-top-color: var(--color-danger);
-}
-
-.real-dashboard-kpi--info {
-  border-top-color: var(--color-info);
-}
-
-.real-dashboard-kpi p,
-.real-dashboard-kpi span,
-.real-dashboard-kicker,
-.real-dashboard-section-head h2,
-.real-dashboard-chart figcaption,
-.real-dashboard-chart text,
-.real-dashboard-section-copy,
-.real-dashboard-predictive-support p,
-.real-dashboard-activity-item p,
-.real-dashboard-activity-item time,
-.real-dashboard-quick-nav h2 {
-  margin: 0;
-}
-
-.real-dashboard-kpi p,
-.real-dashboard-kicker,
-.real-dashboard-secondary-metrics span,
-.real-dashboard-procurement-summary span,
-.real-dashboard-predictive-counts span,
-.real-dashboard-predictive-support span,
-.real-dashboard-table th {
-  color: var(--color-text-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.2;
-  text-transform: uppercase;
-}
-
-.real-dashboard-kpi strong {
-  min-width: 0;
+.real-dashboard-primary-sales .surface-header__title {
+  font-size: 32px;
+  font-weight: 750;
   overflow-wrap: anywhere;
-  color: var(--color-text);
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.1;
 }
 
-.real-dashboard-kpi span,
-.real-dashboard-section-head span,
-.real-dashboard-chart figcaption,
-.real-dashboard-section-copy,
-.real-dashboard-predictive-support p,
-.real-dashboard-activity-item p,
-.real-dashboard-activity-item time {
+.real-dashboard-primary-sales .surface-header__description {
+  color: var(--color-text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.real-dashboard-primary-sales__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.real-dashboard-primary-sales__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-control);
+  background: rgba(91, 183, 242, 0.09);
   color: var(--color-text-secondary);
   font-size: 13px;
+  font-weight: 650;
   line-height: var(--line-body);
+}
+
+.real-dashboard-primary-sales__meta svg,
+.real-dashboard-quick-nav-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.real-dashboard-kpi.metric-card--warning {
+  background: color-mix(in srgb, var(--color-warning-subtle) 58%, var(--bento-card, var(--color-surface)));
+}
+
+.real-dashboard-kpi.metric-card--danger {
+  background: color-mix(in srgb, var(--color-danger-subtle) 58%, var(--bento-card, var(--color-surface)));
 }
 
 .real-dashboard-sales,
 .real-dashboard-inventory,
 .real-dashboard-procurement,
 .real-dashboard-predictive,
-.real-dashboard-activity {
-  display: grid;
+.real-dashboard-activity,
+.real-dashboard-quick-nav {
   gap: var(--space-4);
 }
 
-.real-dashboard-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(360px, 0.82fr);
-  gap: var(--space-4);
-  align-items: start;
-}
-
-.real-dashboard-section-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-4);
-}
-
-.real-dashboard-section-head h2,
-.real-dashboard-quick-nav h2 {
-  margin-top: var(--space-1);
-  color: var(--color-text);
-  font-size: var(--text-section-title);
-  font-weight: 700;
-  line-height: var(--line-tight);
-}
-
-.real-dashboard-section-head > .ui-button {
-  flex: none;
+.real-dashboard-sales {
+  min-height: 340px;
 }
 
 .real-dashboard-sales-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
   gap: var(--space-4);
-  align-items: stretch;
+  align-items: start;
 }
 
 .real-dashboard-chart {
@@ -148,7 +124,7 @@
 
 .real-dashboard-chart svg {
   width: 100%;
-  min-height: 230px;
+  min-height: 250px;
   display: block;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-card);
@@ -225,7 +201,7 @@
 }
 
 .real-dashboard-chart__empty {
-  min-height: 230px;
+  min-height: 250px;
   display: grid;
   place-items: center;
   border: 1px dashed var(--color-border);
@@ -244,10 +220,27 @@
 .real-dashboard-procurement-summary article,
 .real-dashboard-predictive-counts article,
 .real-dashboard-predictive-support article {
+  display: grid;
+  align-content: start;
+  gap: var(--space-1);
+  min-width: 0;
   padding: var(--space-3);
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-card);
   background: var(--color-surface-subtle);
+}
+
+.real-dashboard-secondary-metrics span,
+.real-dashboard-procurement-summary span,
+.real-dashboard-predictive-counts span,
+.real-dashboard-predictive-support span,
+.real-dashboard-table th {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 
 .real-dashboard-secondary-metrics strong,
@@ -265,19 +258,24 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.real-dashboard-predictive-counts article {
-  align-content: start;
-}
-
 .real-dashboard-predictive-counts .ui-badge {
   justify-self: start;
 }
 
 .real-dashboard-predictive-support {
   display: grid;
-  grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  grid-template-columns: minmax(210px, 0.75fr) minmax(0, 1.25fr);
   gap: var(--space-3);
-  align-items: stretch;
+  align-items: start;
+}
+
+.real-dashboard-predictive-support p,
+.real-dashboard-activity-item p,
+.real-dashboard-activity-item time {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: var(--line-body);
 }
 
 .real-dashboard-predictive-badges,
@@ -347,7 +345,7 @@
 }
 
 .real-dashboard-table tbody tr:hover {
-  background: #fbfdff;
+  background: var(--color-surface-subtle);
 }
 
 .real-dashboard-table strong {
@@ -425,7 +423,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-4);
+}
+
+.real-dashboard-quick-nav .surface-header {
+  flex: none;
 }
 
 .real-dashboard-quick-nav-actions {
@@ -439,7 +440,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-3);
+  width: fit-content;
   min-height: 42px;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-card);
+  background: var(--color-surface);
   color: var(--color-text-secondary);
   font-size: 14px;
 }
@@ -451,24 +457,10 @@
 }
 
 @media (max-width: 1220px) {
-  .real-dashboard-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .real-dashboard-grid,
   .real-dashboard-sales-grid {
     grid-template-columns: 1fr;
   }
 
-  .real-dashboard-secondary-metrics,
-  .real-dashboard-procurement-summary,
-  .real-dashboard-predictive-counts {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 820px) {
-  .real-dashboard-kpis,
   .real-dashboard-secondary-metrics,
   .real-dashboard-procurement-summary,
   .real-dashboard-predictive-counts {
@@ -478,8 +470,18 @@
   .real-dashboard-predictive-support {
     grid-template-columns: 1fr;
   }
+}
 
-  .real-dashboard-section-head,
+@media (max-width: 820px) {
+  .real-dashboard-primary-sales,
+  .real-dashboard-sales,
+  .real-dashboard-inventory,
+  .real-dashboard-predictive,
+  .real-dashboard-procurement,
+  .real-dashboard-activity {
+    grid-column: 1 / -1;
+  }
+
   .real-dashboard-activity-item,
   .real-dashboard-quick-nav {
     align-items: flex-start;
@@ -497,7 +499,10 @@
 }
 
 @media (max-width: 640px) {
-  .real-dashboard-kpis,
+  .real-dashboard {
+    gap: var(--space-4);
+  }
+
   .real-dashboard-secondary-metrics,
   .real-dashboard-procurement-summary,
   .real-dashboard-predictive-counts {
@@ -513,7 +518,8 @@
 
   .real-dashboard-quick-nav-actions,
   .real-dashboard-quick-nav-actions .ui-button,
-  .real-dashboard-section-head > .ui-button {
+  .real-dashboard .surface-header__action,
+  .real-dashboard .surface-header__action .ui-button {
     width: 100%;
   }
 

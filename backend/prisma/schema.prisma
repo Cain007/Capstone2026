@@ -336,6 +336,8 @@ model Product {
   price        Decimal         @db.Decimal(12, 2)
   cost         Decimal?        @db.Decimal(12, 2)
   reorderPoint Int?
+  imageUrl     String?
+  imagePublicId String?
   categoryId   String
   createdById  String?
   updatedById  String?

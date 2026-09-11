@@ -4,7 +4,15 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>capstone</title>
+    <title>King of Clouds | Operations</title>
+    <script>
+      (() => {
+        let theme = 'light';
+        try { if (localStorage.getItem('koc_theme') === 'dark') theme = 'dark'; } catch {}
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -5,12 +5,16 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from 'react';
+import { Boxes, Pencil, Plus, Trash2, Upload, X } from 'lucide-react';
+import ProductImage from '../../../components/product/ProductImage';
 import PageHeader from '../../../components/PageHeader';
+import { BentoCard } from '../../../components/layout/BentoCard';
+import { BentoGrid } from '../../../components/layout/BentoGrid';
+import { MetricCard } from '../../../components/layout/MetricCard';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   ConfirmDialog,
   EmptyState,
   Input,
@@ -173,6 +177,12 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
+  const [removeImageConfirm, setRemoveImageConfirm] = useState(false);
+  const [imageWarning, setImageWarning] = useState<string | null>(null);
+  const busy = submitting || imageBusy;
   const [imageInputKey, setImageInputKey] = useState(0);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -306,6 +316,9 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
   }
 
   function openCreateModal() {
+    setImageFile(null);
+    setImageError(null);
+    setImageWarning(null);
     revokePreview();
     setEditingProduct(null);
     setFormData(EMPTY_FORM);
@@ -317,6 +330,9 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
   }
 
   function openEditModal(product: Product) {
+    setImageFile(null);
+    setImageError(null);
+    setImageWarning(null);
     revokePreview();
     setEditingProduct(product);
     setFormData({
@@ -342,6 +358,8 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
   }
 
   function closeModal() {
+    setImageFile(null);
+    setImageError(null);
     revokePreview();
     setModalOpen(false);
     setEditingProduct(null);
@@ -360,12 +378,28 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
   function handleImageSelect(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
-
+    revokePreview();
+    setImagePreview(null);
+    setImageFile(null);
+    setImageError(null);
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      event.target.value = '';
+      setImageError('Use a JPEG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      event.target.value = '';
+      setImageError('Product image must not exceed 5 MB.');
+      return;
+    }
+    setImageFile(file);
     revokePreview();
     setImagePreview(URL.createObjectURL(file));
   }
 
   function resetImage() {
+    setImageFile(null);
+    setImageError(null);
     revokePreview();
     setImagePreview(null);
     setImageInputKey((current) => current + 1);
@@ -373,6 +407,7 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    if (busy || imageError || !canManage) return;
     setFormError(null);
 
     const name = formData.name.trim();
@@ -459,14 +494,75 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
         throw new Error(await readMessage(response, 'Unable to save product.'));
       }
 
-      await loadProducts();
-      setSuccessMessage(editingProduct ? 'Product updated.' : 'Product created.');
+      const { product: saved } = await response.json() as { product: Product };
+      setProducts(current => [...current.filter(product => product.id !== saved.id), saved]);
+      let warning: string | null = null;
+      if (imageFile) {
+        setImageBusy(true);
+        let uploadMessage = 'Unable to upload product image. Please retry from Edit Product.';
+        try {
+          const data = new FormData();
+          data.append('image', imageFile);
+          const result = await fetch(`${API_URL}/api/products/${saved.id}/image`, { method: 'POST', headers: authHeaders(), body: data });
+          if (!result.ok) {
+            uploadMessage = imageResponseMessage(result.status);
+            throw new Error(uploadMessage);
+          }
+          const uploaded = await result.json() as { imageUrl: string };
+          setProducts(current => current.map(product => product.id === saved.id ? { ...product, imageUrl: uploaded.imageUrl } : product));
+        } catch {
+          warning = `${editingProduct ? 'Product was updated' : 'Product was created'}, but the image could not be uploaded. ${uploadMessage}`;
+          await loadProducts();
+        } finally { setImageBusy(false); }
+      }
+      setImageWarning(warning);
+      setSuccessMessage(warning ? null : editingProduct ? 'Product updated.' : 'Product created.');
       closeModal();
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Unable to save product.');
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function imageResponseMessage(status: number) {
+    const messages: Record<number, string> = {
+      400: 'Select a valid product image.', 401: 'Your session expired. Sign in again.',
+      403: 'Only administrators can change product images.', 404: 'Product not found. Reload the catalog.',
+      409: 'The product image changed while you were editing. Reload the product and try again.',
+      413: 'Product image must not exceed 5 MB.', 415: 'Use a JPEG, PNG, or WebP image.',
+      429: 'Too many image requests. Please try again later.',
+      502: 'Image storage is currently unavailable.', 503: 'Image storage is currently unavailable.',
+    };
+    return messages[status] ?? 'Unable to change product image. Please try again.';
+  }
+
+  async function removeCurrentImage() {
+    if (!editingProduct || busy || !canManage) return;
+    setImageBusy(true);
+    setImageError(null);
+    let removalMessage = 'Unable to remove product image. Please try again.';
+    try {
+      const result = await fetch(`${API_URL}/api/products/${editingProduct.id}/image`, { method: 'DELETE', headers: authHeaders() });
+      if (!result.ok) {
+        removalMessage = imageResponseMessage(result.status);
+        if (result.status === 409) {
+          const fresh = await fetch(`${API_URL}/api/products/${editingProduct.id}`, { headers: authHeaders() });
+          if (fresh.ok) {
+            const { product } = await fresh.json() as { product: Product };
+            setProducts(current => current.map(row => row.id === product.id ? product : row));
+            setEditingProduct(product);
+          }
+        }
+        throw new Error(removalMessage);
+      }
+      setProducts(current => current.map(product => product.id === editingProduct.id ? { ...product, imageUrl: null } : product));
+      setEditingProduct(current => current ? { ...current, imageUrl: null } : current);
+      resetImage();
+      setRemoveImageConfirm(false);
+    } catch {
+      setImageError(removalMessage);
+    } finally { setImageBusy(false); }
   }
 
   async function handleDelete() {
@@ -510,13 +606,16 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
       onNavigate={onNavigate}
       className="dashboard-page dashboard-page--products"
     >
-      <section className="products-page" aria-label="Products workspace">
+      <section className="products-page operational-page" aria-label="Products workspace">
         <PageHeader
           eyebrow="Catalog"
           title="Products"
-          description="Manage product information, pricing, categories, and catalog status."
-          actionLabel={canManage ? '+ Add Product' : ''}
-          onAction={canManage ? openCreateModal : undefined}
+          description="Manage product records, pricing, categories, and inventory-related settings."
+          secondaryActions={canManage ? (
+            <Button variant="primary" onClick={openCreateModal} iconStart={<Plus />}>
+              Add Product
+            </Button>
+          ) : undefined}
         />
 
         {successMessage ? (
@@ -524,25 +623,14 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
             {successMessage}
           </Alert>
         ) : null}
+        {imageWarning ? <Alert variant="warning" title="Product saved">{imageWarning}</Alert> : null}
 
-        <Card padding="compact" className="products-summary" aria-label="Product summary">
-          <div>
-            <span>Total Products</span>
-            <strong>{summary.total}</strong>
-          </div>
-          <div>
-            <span>Active</span>
-            <strong>{summary.active}</strong>
-          </div>
-          <div>
-            <span>Draft</span>
-            <strong>{summary.draft}</strong>
-          </div>
-          <div>
-            <span>Archived / Discontinued</span>
-            <strong>{summary.inactive}</strong>
-          </div>
-        </Card>
+        <BentoGrid className="operational-summary products-summary" columns={6} gap="standard" aria-label="Product summary">
+          <MetricCard className="bento-span-2" label="Total Products" value={summary.total} icon={<Boxes />} />
+          <MetricCard className="bento-span-2" label="Active" value={summary.active} tone="success" />
+          <MetricCard className="bento-span-2" label="Draft" value={summary.draft} />
+          <MetricCard className="bento-span-2" label="Archived / Discontinued" value={summary.inactive} tone={summary.inactive > 0 ? 'warning' : 'default'} />
+        </BentoGrid>
 
         {categoriesError ? (
           <Alert variant="warning" title="Categories unavailable.">
@@ -550,8 +638,15 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
           </Alert>
         ) : null}
 
-        <Card padding="default" className="products-resource-card">
-          <div className="products-toolbar">
+        <BentoCard
+          className="products-resource-card operational-table-card"
+          variant="table"
+          padding="standard"
+          eyebrow="Master data"
+          title="Product Catalog"
+          description={`${filteredProducts.length} of ${products.length} products shown.`}
+        >
+          <div className="products-toolbar operational-toolbar">
             <Input
               label="Search"
               type="search"
@@ -599,14 +694,14 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
           </div>
 
           {loading ? (
-            <div className="products-loading" role="status" aria-live="polite">
+            <div className="products-loading operational-state" role="status" aria-live="polite">
               <Spinner size="md" label="Loading products" />
               <span>Loading products...</span>
             </div>
           ) : null}
 
           {error && !loading ? (
-            <div className="products-state">
+            <div className="products-state operational-state operational-state--block">
               <Alert variant="error" title="Unable to load products.">
                 Check your connection and try again.
               </Alert>
@@ -621,8 +716,8 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
               title="No products yet."
               description="Add your first product to start building the catalog."
               action={canManage ? (
-                <Button variant="primary" onClick={openCreateModal}>
-                  + Add Product
+                <Button variant="primary" onClick={openCreateModal} iconStart={<Plus />}>
+                  Add Product
                 </Button>
               ) : undefined}
             />
@@ -641,8 +736,8 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
           ) : null}
 
           {!loading && !error && hasFilteredProducts ? (
-            <div className="products-table-wrap">
-              <table className="products-table">
+            <div className="products-table-wrap operational-table-wrap">
+              <table className="products-table operational-table">
                 <thead>
                   <tr>
                     <th scope="col">Product</th>
@@ -653,7 +748,7 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
                     <th scope="col">Reorder Point</th>
                     <th scope="col">Status</th>
                     <th scope="col">Updated</th>
-                    <th scope="col" className="products-actions-heading">
+                    <th scope="col" className="products-actions-heading operational-actions-heading">
                       Actions
                     </th>
                   </tr>
@@ -663,9 +758,7 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
                     <tr key={product.id}>
                       <td>
                         <div className="products-product-cell">
-                          <span className="products-thumbnail" aria-hidden="true">
-                            {product.name.charAt(0).toUpperCase()}
-                          </span>
+                          <ProductImage imageUrl={product.imageUrl} name={product.name} />
                           <div>
                             <strong>{product.name}</strong>
                             <span title={product.description ?? product.slug}>
@@ -688,22 +781,24 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
                       </td>
                       <td>{formatDate(product.updatedAt)}</td>
                       <td>
-                        {canManage ? <div className="products-row-actions">
+                        {canManage ? <div className="products-row-actions operational-row-actions">
                           <Button
                             variant="ghost"
                             aria-label={`Edit ${product.name}`}
                             onClick={() => openEditModal(product)}
+                            iconStart={<Pencil />}
                           >
                             Edit
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="danger"
                             aria-label={`Delete ${product.name}`}
                             onClick={() => {
                               setDeleteConfirm(product);
                               setDeleteError(null);
                               setSuccessMessage(null);
                             }}
+                            iconStart={<Trash2 />}
                           >
                             Delete
                           </Button>
@@ -715,37 +810,57 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
               </table>
             </div>
           ) : null}
-        </Card>
+        </BentoCard>
 
         <Modal
-          open={modalOpen}
+          open={modalOpen && !removeImageConfirm && canManage}
           title={formTitle}
           description="Product records define catalog pricing, category placement, and selling status."
           onClose={() => {
-            if (!submitting) closeModal();
+            if (!busy) closeModal();
           }}
-          closeOnBackdrop={!submitting}
+          closeOnBackdrop={!busy}
           width="760px"
           footer={
             <>
-              <Button variant="secondary" onClick={closeModal} disabled={submitting}>
+              <Button variant="secondary" onClick={closeModal} disabled={busy}>
                 Cancel
               </Button>
               <Button
                 variant="primary"
                 type="submit"
                 form="product-form"
-                loading={submitting}
+                loading={busy}
               >
-                {editingProduct ? 'Update Product' : 'Save Product'}
+                {imageBusy ? 'Uploading image...' : editingProduct ? 'Update Product' : 'Save Product'}
               </Button>
             </>
           }
         >
-          <form id="product-form" className="products-form" onSubmit={handleSubmit}>
-            <fieldset className="products-form-section">
-              <legend>General Information</legend>
-              <div className="products-form-grid">
+          <form id="product-form" className="products-form operational-form" onSubmit={handleSubmit}>
+            <fieldset className="products-form-section operational-form-section" disabled={busy}>
+              <legend>Product Image</legend>
+              <div className="products-image-editor">
+                <ProductImage imageUrl={imagePreview ?? editingProduct?.imageUrl} name={formData.name || 'Selected product image'} size="preview" loading="eager" />
+                <div className="products-image-controls">
+                  {editingProduct?.imageUrl && !imageFile ? <strong>Current Product Image</strong> : null}
+                  <Input key={imageInputKey} id="product-image" label="Product Image" type="file"
+                    accept="image/jpeg,image/png,image/webp" onChange={handleImageSelect}
+                    helperText="JPEG, PNG, or WebP. Maximum 5 MB." />
+                  {imageFile ? <p className="products-image-filename">{imageFile.name} ({(imageFile.size / 1024).toFixed(1)} KB)</p> : null}
+                  <div className="products-image-actions">
+                    <Button variant="secondary" iconStart={<Upload />} onClick={() => document.getElementById('product-image')?.click()}>{editingProduct?.imageUrl ? 'Replace Image' : 'Choose Image'}</Button>
+                    {imageFile || imageError ? <Button variant="ghost" iconStart={<X />} onClick={resetImage}>Discard Selection</Button> : null}
+                    {editingProduct?.imageUrl ? <Button variant="danger" iconStart={<Trash2 />} onClick={() => { setImageError(null); setRemoveImageConfirm(true); }}>Remove Image</Button> : null}
+                  </div>
+                </div>
+              </div>
+            </fieldset>
+            {imageError ? <Alert variant="error">{imageError}</Alert> : null}
+            {imageBusy ? <p role="status">Uploading image...</p> : null}
+            <fieldset className="products-form-section operational-form-section" disabled={busy}>
+              <legend>Basic Information</legend>
+              <div className="products-form-grid operational-form-grid">
                 <Input
                   label="Product Name"
                   value={formData.name}
@@ -803,14 +918,14 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
                   onChange={(event) => updateForm('description', event.target.value)}
                   placeholder="Optional product description"
                   rows={3}
-                  className="products-form-span"
+                  className="products-form-span operational-form-span"
                 />
               </div>
             </fieldset>
 
-            <fieldset className="products-form-section">
+            <fieldset className="products-form-section operational-form-section" disabled={busy}>
               <legend>Pricing</legend>
-              <div className="products-form-grid">
+              <div className="products-form-grid operational-form-grid">
                 <Input
                   label="Selling Price"
                   type="number"
@@ -844,8 +959,9 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
               </div>
             </fieldset>
 
-            <fieldset className="products-form-section">
-              <legend>Status</legend>
+            <fieldset className="products-form-section operational-form-section" disabled={busy}>
+              <legend>Classification / Status</legend>
+              <div className="products-form-grid operational-form-grid">
               <Select
                 label="Product Status"
                 value={formData.status}
@@ -859,43 +975,17 @@ export default function ProductsPage({ userEmail, userRole, onLogout, onNavigate
                   </option>
                 ))}
               </Select>
-            </fieldset>
-
-            <fieldset className="products-form-section">
-              <legend>Image</legend>
-              <div className="products-image-field">
-                <div className="products-image-preview-box">
-                  {imagePreview ? (
-                    <img src={imagePreview} alt="Selected product preview" />
-                  ) : (
-                    <div className="products-image-placeholder">
-                      <span>Product Image Preview</span>
-                      <small>Preview only. Image storage is not yet enabled.</small>
-                    </div>
-                  )}
-                </div>
-                <div className="products-image-controls">
-                  <Input
-                    key={imageInputKey}
-                    id="product-image"
-                    label="Product Image Preview"
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp"
-                    onChange={handleImageSelect}
-                    helperText="JPG, JPEG, PNG, or WEBP. Preview only; this is not uploaded."
-                  />
-                  {imagePreview ? (
-                    <Button variant="secondary" onClick={resetImage}>
-                      Remove Preview
-                    </Button>
-                  ) : null}
-                </div>
               </div>
             </fieldset>
 
             {formError ? <Alert variant="error">{formError}</Alert> : null}
           </form>
         </Modal>
+        <ConfirmDialog open={removeImageConfirm && canManage} title="Remove product image?"
+          description={imageError ?? `This will remove the current image for ${editingProduct?.name}. The product record will remain.`}
+          confirmLabel="Remove Image" danger pending={imageBusy}
+          onCancel={() => { if (!imageBusy) { setRemoveImageConfirm(false); setImageError(null); } }}
+          onConfirm={removeCurrentImage} />
 
         <ConfirmDialog
           open={Boolean(deleteConfirm)}

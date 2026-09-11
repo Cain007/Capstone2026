@@ -1,0 +1,19 @@
+.notification-bell { position: relative; flex-shrink: 0; }
+.notification-count { position: absolute; top: -6px; right: -7px; min-width: 19px; height: 19px; padding: 0 4px; display: grid; place-items: center; border-radius: 6px; background: var(--color-primary); color: var(--color-text-inverse); border: 1px solid var(--color-bg); font-size: 11px; font-weight: 700; line-height: 1; }
+.notification-panel[data-slot="sheet-content"] { width: min(420px, 100vw); max-width: 420px; gap: 0; background: var(--color-surface); color: var(--color-text); border-color: var(--color-border); letter-spacing: 0; }
+.notification-header { padding: 24px 48px 16px 20px; }
+.notification-header [data-slot="sheet-title"] { font-size: 20px; }
+.notification-header [data-slot="sheet-description"] { margin-top: 6px; color: var(--color-text-muted); font-size: 13px; line-height: 1.5; }
+.notification-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 20px 16px; border-bottom: 1px solid var(--color-border); font-size: 12px; color: var(--color-text-muted); }
+.notification-scroll { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.notification-scroll ul { list-style: none; padding: 0; margin: 0; }
+.notification-row { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 12px; padding: 18px 20px; border-bottom: 1px solid var(--color-border-subtle); overflow-wrap: anywhere; }
+.notification-row > svg { margin-top: 3px; color: var(--color-primary); }
+.notification-row--critical > svg { color: var(--color-danger); }
+.notification-row--warning > svg { color: var(--color-warning); }
+.notification-meta { color: var(--color-text-muted); font-size: 12px; text-transform: capitalize; }
+.notification-row h3, .notification-state h3 { font-size: 14px; line-height: 1.5; font-weight: 600; margin: 4px 0; }
+.notification-row p, .notification-state p { color: var(--color-text-secondary); font-size: 13px; line-height: 1.6; margin: 4px 0 10px; }
+.notification-row button, .notification-state button { background: transparent; border: 0; padding: 4px 0; color: var(--color-primary); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.notification-state { padding: 24px 20px; font-size: 13px; }
+.notification-panel button:focus-visible { outline: 2px solid var(--color-border-focus); outline-offset: 3px; }

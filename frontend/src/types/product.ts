@@ -4,6 +4,7 @@ export type Product = {
   slug: string;
   name: string;
   description: string | null;
+  imageUrl?: string | null;
   status: string;
   unitType: string;
   price: string | number;

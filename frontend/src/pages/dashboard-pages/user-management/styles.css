@@ -1,40 +1,21 @@
-.dashboard-page--user-management {
-  --page-bg: #f7faf9;
-  --page-border: #d7e5df;
-  --page-accent: #0f766e;
-  --page-accent-rgb: 15, 118, 110;
-  --page-accent-soft: #e5f5f1;
-}
+@import "../_shared/operational.css";
 
-.user-management-page { display: grid; gap: var(--space-4); }
 .user-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-3); }
-.user-summary__card { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--page-border); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-xs); }
-.user-summary__card span { color: var(--color-text-muted); font-size: var(--text-meta); font-weight: 700; }
-.user-summary__card strong { color: var(--color-text); font-size: 26px; line-height: 1; }
-.user-management-card { display: grid; gap: var(--space-4); }
-.user-toolbar { display: grid; grid-template-columns: minmax(220px, 1fr) 150px 170px auto; align-items: end; gap: var(--space-3); }
-.user-toolbar .ui-button { min-height: 42px; }
-.user-state { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-8); color: var(--color-text-secondary); }
-.user-table-wrap { overflow-x: auto; }
-.user-table { width: 100%; min-width: 900px; border-collapse: collapse; font-size: var(--text-table); }
-.user-table th { padding: 0 12px 10px; border-bottom: 1px solid var(--color-border); color: var(--color-text-muted); font-size: var(--text-meta); font-weight: 800; text-align: left; text-transform: uppercase; }
-.user-table td { padding: 14px 12px; border-bottom: 1px solid var(--color-border-subtle); color: var(--color-text-secondary); vertical-align: middle; }
-.user-table tbody tr:last-child td { border-bottom: 0; }
-.user-table td:first-child { min-width: 190px; color: var(--color-text); }
-.user-table td:first-child strong, .user-table td:first-child span, .user-table td:first-child small { display: block; }
-.user-table td:first-child span { margin-top: 3px; color: var(--color-text-muted); }
-.user-table td:first-child small { margin-top: 6px; color: var(--color-warning); font-size: 11px; font-weight: 700; }
-.user-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 250px; }
-.user-actions .ui-button { padding: 7px 9px; font-size: 12px; }
-.user-actions select { min-height: 32px; padding: 0 7px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text-secondary); font: inherit; }
-.user-form { display: grid; gap: var(--space-4); }
-@media (max-width: 760px) {
+.user-management-card { --toolbar-filters: 3; --table-min-width: 1060px; }
+.user-table td { padding-block: 8px; }
+.user-table td:first-child { min-width: 190px; }
+.user-table td:first-child > strong, .user-table td:first-child > span:not(.ui-badge) { display: block; }
+.user-table td:first-child > span:not(.ui-badge) { color: var(--color-text-muted); font-size: 12px; overflow-wrap: anywhere; }
+.user-table td:first-child .ui-badge { margin-top: 4px; font-size: var(--text-meta); }
+.user-actions { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.user-actions .ui-button { min-height: 34px; padding: 4px 8px; font-size: 12px; }
+.user-actions select { min-height: 34px; padding: 0 8px; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font: inherit; font-size: 12px; }
+.user-state { flex-wrap: wrap; }
+.user-management-page .operational-table-wrap { width: 100%; margin-inline: 0; border: 1px solid var(--color-border-subtle); border-radius: var(--radius-card); }
+.user-form .ui-input, .user-form .ui-select { min-height: 40px; }
+@media (max-width: 980px) {
   .user-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .user-toolbar { grid-template-columns: 1fr 1fr; }
-  .user-toolbar .ui-field:first-child { grid-column: 1 / -1; }
 }
-@media (max-width: 430px) {
-  .user-summary { grid-template-columns: 1fr 1fr; }
-  .user-toolbar { grid-template-columns: 1fr; }
-  .user-toolbar .ui-field:first-child { grid-column: auto; }
+@media (max-width: 640px) {
+  .user-summary .metric-card { min-height: 96px; padding: 12px; }
 }

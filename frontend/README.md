@@ -1,6 +1,6 @@
 # Frontend
 
-React/Vite frontend for the Sales and Inventory System Implementing Predictive Analysis.
+React/Vite frontend for KING OF CLOUDS VAPE SHOP inventory, sales, and forecasting management.
 
 ## Environment
 

@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Pencil, Plus, Tags, Trash2 } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
+import { BentoGrid } from '../../../components/layout/BentoGrid';
+import { BentoCard } from '../../../components/layout/BentoCard';
+import { MetricCard } from '../../../components/layout/MetricCard';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   ConfirmDialog,
   EmptyState,
   Input,
@@ -268,13 +271,16 @@ export default function CategoriesPage({ userEmail, userRole, onLogout, onNaviga
       onNavigate={onNavigate}
       className="dashboard-page dashboard-page--categories"
     >
-      <section className="categories-page" aria-label="Categories workspace">
+      <section className="categories-page operational-page" aria-label="Categories workspace">
         <PageHeader
           eyebrow="Catalog"
           title="Categories"
           description="Organize products into manageable catalog groups."
-          actionLabel={canManage ? '+ Add Category' : ''}
-          onAction={canManage ? openCreateModal : undefined}
+          secondaryActions={canManage ? (
+            <Button variant="primary" onClick={openCreateModal} iconStart={<Plus />}>
+              Add Category
+            </Button>
+          ) : undefined}
         />
 
         {successMessage ? (
@@ -283,23 +289,21 @@ export default function CategoriesPage({ userEmail, userRole, onLogout, onNaviga
           </Alert>
         ) : null}
 
-        <Card padding="compact" className="categories-summary" aria-label="Category summary">
-          <div>
-            <span>Total Categories</span>
-            <strong>{summary.total}</strong>
-          </div>
-          <div>
-            <span>Active</span>
-            <strong>{summary.active}</strong>
-          </div>
-          <div>
-            <span>Archived</span>
-            <strong>{summary.archived}</strong>
-          </div>
-        </Card>
+        <BentoGrid className="categories-summary operational-summary" columns={6} gap="standard" aria-label="Category summary">
+          <MetricCard className="bento-span-2" label="Total Categories" value={summary.total} icon={<Tags />} />
+          <MetricCard className="bento-span-2" label="Active" value={summary.active} tone="success" />
+          <MetricCard className="bento-span-2" label="Archived" value={summary.archived} tone={summary.archived > 0 ? 'warning' : 'default'} />
+        </BentoGrid>
 
-        <Card padding="default" className="categories-resource-card">
-          <div className="categories-toolbar">
+        <BentoCard
+          className="categories-resource-card operational-table-card"
+          variant="table"
+          padding="standard"
+          eyebrow="Master data"
+          title="Category List"
+          description={`${filteredCategories.length} of ${categories.length} categories shown.`}
+        >
+          <div className="categories-toolbar operational-toolbar">
             <Input
               label="Search"
               type="search"
@@ -319,14 +323,14 @@ export default function CategoriesPage({ userEmail, userRole, onLogout, onNaviga
           </div>
 
           {loading ? (
-            <div className="categories-loading" role="status" aria-live="polite">
+            <div className="categories-loading operational-state" role="status" aria-live="polite">
               <Spinner size="md" label="Loading categories" />
               <span>Loading categories...</span>
             </div>
           ) : null}
 
           {error && !loading ? (
-            <div className="categories-state">
+            <div className="categories-state operational-state operational-state--block">
               <Alert variant="error" title="Unable to load categories.">
                 Check your connection and try again.
               </Alert>
@@ -341,8 +345,8 @@ export default function CategoriesPage({ userEmail, userRole, onLogout, onNaviga
               title="No categories yet."
               description="Create your first category to organize the product catalog."
               action={canManage ? (
-                <Button variant="primary" onClick={openCreateModal}>
-                  + Add Category
+                <Button variant="primary" onClick={openCreateModal} iconStart={<Plus />}>
+                  Add Category
                 </Button>
               ) : undefined}
             />
@@ -361,15 +365,15 @@ export default function CategoriesPage({ userEmail, userRole, onLogout, onNaviga
           ) : null}
 
           {!loading && !error && filteredCategories.length > 0 ? (
-            <div className="categories-table-wrap">
-              <table className="categories-table">
+            <div className="categories-table-wrap operational-table-wrap">
+              <table className="categories-table operational-table">
                 <thead>
                   <tr>
                     <th scope="col">Category</th>
                     <th scope="col">Description</th>
                     <th scope="col">Status</th>
                     <th scope="col">Updated</th>
-                    <th scope="col" className="categories-actions-heading">
+                    <th scope="col" className="categories-actions-heading operational-actions-heading">
                       Actions
                     </th>
                   </tr>
@@ -398,22 +402,24 @@ export default function CategoriesPage({ userEmail, userRole, onLogout, onNaviga
                       </td>
                       <td>{formatDate(category.updatedAt)}</td>
                       <td>
-                        {canManage ? <div className="categories-row-actions">
+                        {canManage ? <div className="categories-row-actions operational-row-actions">
                           <Button
                             variant="ghost"
                             aria-label={`Edit ${category.name}`}
                             onClick={() => openEditModal(category)}
+                            iconStart={<Pencil />}
                           >
                             Edit
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="danger"
                             aria-label={`Delete ${category.name}`}
                             onClick={() => {
                               setDeleteConfirm(category);
                               setDeleteError(null);
                               setSuccessMessage(null);
                             }}
+                            iconStart={<Trash2 />}
                           >
                             Delete
                           </Button>
@@ -425,7 +431,7 @@ export default function CategoriesPage({ userEmail, userRole, onLogout, onNaviga
               </table>
             </div>
           ) : null}
-        </Card>
+        </BentoCard>
 
         <Modal
           open={modalOpen}
@@ -451,7 +457,7 @@ export default function CategoriesPage({ userEmail, userRole, onLogout, onNaviga
             </>
           }
         >
-          <form id="category-form" className="categories-form" onSubmit={handleSubmit}>
+          <form id="category-form" className="categories-form operational-form" onSubmit={handleSubmit}>
             <Input
               label="Category Name"
               value={formData.name}

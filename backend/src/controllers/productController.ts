@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { recordAuditEvent } from '../utils/audit.js';
+import { cleanupProductImage } from '../services/productImageStorage.js';
 
 type ProductRecord = {
   id: string;
@@ -19,6 +20,7 @@ type ProductRecord = {
   price: unknown;
   cost: unknown;
   reorderPoint: number | null;
+  imageUrl: string | null;
   categoryId: string;
   createdAt: Date;
   updatedAt: Date;
@@ -74,6 +76,7 @@ function serializeProduct(product: ProductRecord) {
     price: product.price,
     cost: product.cost,
     reorderPoint: product.reorderPoint,
+    imageUrl: product.imageUrl,
     categoryId: product.categoryId,
     category: product.category,
     createdAt: product.createdAt,
@@ -501,7 +504,7 @@ export async function deleteProduct(request: Request, response: Response) {
 
       if (!product) return null;
 
-      await transaction.product.delete({ where: { id } });
+      const removedProduct = await transaction.product.delete({ where: { id } });
       await recordAuditEvent(
         {
           request,
@@ -517,7 +520,7 @@ export async function deleteProduct(request: Request, response: Response) {
         transaction,
       );
 
-      return product;
+      return { ...product, imagePublicId: removedProduct.imagePublicId };
     });
 
     if (!deletedProduct) {
@@ -525,6 +528,7 @@ export async function deleteProduct(request: Request, response: Response) {
       return;
     }
 
+    await cleanupProductImage(deletedProduct.imagePublicId, deletedProduct.id);
     response.status(204).send();
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {

@@ -1,4 +1,7 @@
-import { useState, type ComponentType } from 'react';
+import { Suspense, useState, type ComponentType } from 'react';
+import AppShell from '../layouts/AppShell';
+import Spinner from '../components/ui/Spinner';
+import PageLoadBoundary from '../components/system/PageLoadBoundary';
 import type { User } from '../types/auth';
 import type { PurchaseOrderPrefill } from '../types/purchase-order';
 import {
@@ -6,6 +9,7 @@ import {
   CategoriesPage,
   DashboardPage,
   ForecastingPage,
+  HelpPage,
   InventoryPage,
   ProductsPage,
   PurchaseOrdersPage,
@@ -18,6 +22,7 @@ import {
   PosPage,
 } from './dashboard-pages';
 import type { DashboardPageName } from './dashboard-pages/_shared/DashboardPageShell';
+import type { HelpTopicId } from './dashboard-pages/help/guide';
 
 type DashboardProps = {
   user: User;
@@ -27,6 +32,8 @@ type DashboardProps = {
 };
 
 type DashboardPageComponentProps = {
+  helpTopic?: HelpTopicId;
+  onOpenHelp?: (topic: HelpTopicId) => void;
   userEmail?: string;
   user?: User;
   onLogout?: () => void;
@@ -53,21 +60,24 @@ const dashboardPages: Record<DashboardPageName, ComponentType<DashboardPageCompo
   'Audit Logs': AuditLogsPage,
   POS: PosPage,
   'Account & System': AccountSystemPage,
+  'Help & System Guide': HelpPage,
 };
 
 export default function Dashboard({ user, defaultRoute, onLogout, onUserUpdated }: DashboardProps) {
-  const staffPages: DashboardPageName[] = ['POS', 'Sales History', 'Products', 'Categories', 'Account & System'];
+  const staffPages: DashboardPageName[] = ['POS', 'Sales History', 'Products', 'Categories', 'Account & System', 'Help & System Guide'];
   const allowedPages = user.role === 'Admin'
     ? (Object.keys(dashboardPages) as DashboardPageName[])
     : staffPages;
   const initialPage = allowedPages.includes(defaultRoute) ? defaultRoute : allowedPages[0];
   const [activePage, setActivePage] = useState<DashboardPageName>(initialPage);
+  const [helpTopic, setHelpTopic] = useState<HelpTopicId>('getting-started');
   const [purchaseOrderPrefill, setPurchaseOrderPrefill] = useState<PurchaseOrderPrefill | null>(null);
   const safeActivePage = allowedPages.includes(activePage) ? activePage : initialPage;
   const ActivePage = dashboardPages[safeActivePage];
 
   const handleNavigate = (page: DashboardPageName) => {
     if (allowedPages.includes(page)) {
+      if (page === 'Help & System Guide') setHelpTopic('getting-started');
       setActivePage(page);
     }
   };
@@ -77,17 +87,42 @@ export default function Dashboard({ user, defaultRoute, onLogout, onUserUpdated 
     handleNavigate('Purchase Orders');
   };
 
-  return (
-    <ActivePage
+  const pageStatus = (failed: boolean) => (
+    <AppShell
+      activePage={safeActivePage}
       userEmail={user.fullName || user.username || user.email}
-      user={user}
+      userRole={user.role}
       onLogout={onLogout}
       onNavigate={handleNavigate}
-      onUserUpdated={onUserUpdated}
-      userRole={user.role}
-      purchaseOrderPrefill={safeActivePage === 'Purchase Orders' ? purchaseOrderPrefill : null}
-      onCreatePurchaseOrderFromPrefill={handleCreatePurchaseOrderFromPrefill}
-      onPurchaseOrderPrefillConsumed={() => setPurchaseOrderPrefill(null)}
-    />
+    >
+      {failed ? (
+        <div role="alert">
+          <h1>Page could not be loaded</h1>
+          <p>Check your connection and reload, or choose another page.</p>
+          <button className="ui-button ui-button--secondary" onClick={() => window.location.reload()}>Reload application</button>
+        </div>
+      ) : <Spinner size="md" label="Loading page" />}
+    </AppShell>
+  );
+
+  return (
+    <PageLoadBoundary key={safeActivePage} fallback={pageStatus(true)}>
+      <Suspense fallback={pageStatus(false)}>
+        <ActivePage
+          key={safeActivePage === 'Help & System Guide' ? helpTopic : safeActivePage}
+          helpTopic={helpTopic}
+          onOpenHelp={(topic) => { setHelpTopic(topic); setActivePage('Help & System Guide'); }}
+          userEmail={user.fullName || user.username || user.email}
+          user={user}
+          onLogout={onLogout}
+          onNavigate={handleNavigate}
+          onUserUpdated={onUserUpdated}
+          userRole={user.role}
+          purchaseOrderPrefill={safeActivePage === 'Purchase Orders' ? purchaseOrderPrefill : null}
+          onCreatePurchaseOrderFromPrefill={handleCreatePurchaseOrderFromPrefill}
+          onPurchaseOrderPrefillConsumed={() => setPurchaseOrderPrefill(null)}
+        />
+      </Suspense>
+    </PageLoadBoundary>
   );
 }

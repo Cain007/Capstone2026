@@ -1,8 +1,41 @@
-import { useEffect, useState, type ReactNode } from 'react';
-import Button from '../components/ui/Button';
-import type { UserRole } from '../types/auth';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  ArrowLeftRight,
+  BookOpen,
+  ChartNoAxesCombined,
+  ClipboardList,
+  FileChartColumn,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Package,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ReceiptText,
+  ScrollText,
+  Settings,
+  ShoppingCart,
+  Tags,
+  Truck,
+  Users,
+  Warehouse,
+  type LucideIcon,
+} from 'lucide-react';
+import { Badge } from '../components/shadcn/ui/badge';
+import { Button } from '../components/shadcn/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '../components/shadcn/ui/sheet';
 import type { DashboardPageName } from '../pages/dashboard-pages/_shared/DashboardPageShell';
+import type { UserRole } from '../types/auth';
+import NotificationCenter from '../components/notifications/NotificationCenter';
 import './app-shell.css';
+import BrandLogo from '../components/brand/BrandLogo';
+import ThemeToggle from '../components/theme/ThemeToggle';
 
 type AppShellProps = {
   activePage: DashboardPageName;
@@ -22,167 +55,145 @@ type NavGroup = {
 };
 
 const navigationGroups: NavGroup[] = [
-  { label: 'Main', items: ['Dashboard'], roles: ['Admin'] },
-  { label: 'Catalog', items: ['Products', 'Categories'], roles: ['Admin'] },
-  { label: 'Procurement', items: ['Suppliers', 'Purchase Orders'], roles: ['Admin'] },
-  { label: 'Operations', items: ['Inventory', 'Stock Movements', 'Sales History'], roles: ['Admin'] },
-  { label: 'Planning', items: ['Forecasting', 'Reports'], roles: ['Admin'] },
+  { label: 'Overview', items: ['Dashboard'], roles: ['Admin'] },
+  { label: 'Operations', items: ['Products', 'Categories', 'Suppliers', 'Inventory', 'Stock Movements'], roles: ['Admin'] },
+  { label: 'Sales', items: ['Sales History'], roles: ['Admin'] },
+  { label: 'Intelligence', items: ['Forecasting', 'Reports'], roles: ['Admin'] },
+  { label: 'Procurement', items: ['Purchase Orders'], roles: ['Admin'] },
   { label: 'Administration', items: ['User Management', 'Audit Logs', 'Account & System'], roles: ['Admin'] },
-  { label: 'Point of Sale', items: ['POS'], roles: ['Staff'] },
-  { label: 'Transactions', items: ['Sales History'], roles: ['Staff'] },
-  { label: 'Inventory', items: ['Products', 'Categories'], roles: ['Staff'] },
+  { label: 'Operations', items: ['POS', 'Sales History'], roles: ['Staff'] },
+  { label: 'Catalog', items: ['Products', 'Categories'], roles: ['Staff'] },
   { label: 'Account', items: ['Account & System'], roles: ['Staff'] },
+  { label: 'Support', items: ['Help & System Guide'] },
 ];
+
+const pageIcons: Record<DashboardPageName, LucideIcon> = {
+  Dashboard: LayoutDashboard,
+  POS: ShoppingCart,
+  Products: Package,
+  Categories: Tags,
+  Suppliers: Truck,
+  'Purchase Orders': ClipboardList,
+  Inventory: Warehouse,
+  'Stock Movements': ArrowLeftRight,
+  'Sales History': ReceiptText,
+  Forecasting: ChartNoAxesCombined,
+  Reports: FileChartColumn,
+  'User Management': Users,
+  'Audit Logs': ScrollText,
+  'Account & System': Settings,
+  'Help & System Guide': BookOpen,
+};
+
+const pageLabels: Record<DashboardPageName, string> = {
+  Dashboard: 'Dashboard',
+  POS: 'POS',
+  Products: 'Products',
+  Categories: 'Categories',
+  Suppliers: 'Suppliers',
+  'Purchase Orders': 'Purchase Orders',
+  Inventory: 'Inventory',
+  'Stock Movements': 'Stock Movements',
+  'Sales History': 'Sales History',
+  Forecasting: 'Predictive Analysis',
+  Reports: 'Reports',
+  'User Management': 'User Management',
+  'Audit Logs': 'Audit Logs',
+  'Account & System': 'Account & System',
+  'Help & System Guide': 'Help & System Guide',
+};
 
 function classNames(...values: Array<string | false | undefined>) {
   return values.filter(Boolean).join(' ');
 }
 
-function NavIcon({ page }: { page: DashboardPageName }) {
-  const commonProps = {
-    width: 18,
-    height: 18,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    'aria-hidden': true,
-  };
+function userInitials(name?: string, email?: string) {
+  const source = (name || email || 'User').trim();
+  const words = source.includes('@') ? source.split('@')[0].split(/[._-]+/) : source.split(/\s+/);
+  return words
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word.charAt(0).toUpperCase())
+    .join('') || 'U';
+}
 
-  switch (page) {
-    case 'Dashboard':
-      return (
-        <svg {...commonProps}>
-          <rect x="3" y="3" width="7" height="7" />
-          <rect x="14" y="3" width="7" height="7" />
-          <rect x="14" y="14" width="7" height="7" />
-          <rect x="3" y="14" width="7" height="7" />
-        </svg>
-      );
-    case 'POS':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 6h16v12H4Z" />
-          <path d="M8 10h8" />
-          <path d="M8 14h5" />
-        </svg>
-      );
-    case 'Products':
-      return (
-        <svg {...commonProps}>
-          <path d="M21 8a2 2 0 0 0-1-1.73L13 2.27a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
-          <path d="m3.3 7 8.7 5 8.7-5" />
-          <path d="M12 22V12" />
-        </svg>
-      );
-    case 'Categories':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 5h16" />
-          <path d="M4 12h16" />
-          <path d="M4 19h16" />
-          <path d="M8 5v14" />
-        </svg>
-      );
-    case 'Suppliers':
-      return (
-        <svg {...commonProps}>
-          <path d="M3 7h11v10H3Z" />
-          <path d="M14 11h3l4 4v2h-7Z" />
-          <circle cx="7" cy="19" r="2" />
-          <circle cx="17" cy="19" r="2" />
-        </svg>
-      );
-    case 'Purchase Orders':
-      return (
-        <svg {...commonProps}>
-          <path d="M6 3h9l3 3v15H6Z" />
-          <path d="M14 3v4h4" />
-          <path d="M9 12h6" />
-          <path d="M9 16h4" />
-          <path d="M4 7h2" />
-          <path d="M4 11h2" />
-          <path d="M4 15h2" />
-        </svg>
-      );
-    case 'Inventory':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 4h16v5H4Z" />
-          <path d="M6 9v11h12V9" />
-          <path d="M9 13h6" />
-        </svg>
-      );
-    case 'Stock Movements':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 6h16" />
-          <path d="M4 12h10" />
-          <path d="M4 18h16" />
-          <circle cx="18" cy="12" r="2" />
-        </svg>
-      );
-    case 'Sales History':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 19V5" />
-          <path d="M4 19h16" />
-          <path d="m8 15 3-4 3 2 4-6" />
-        </svg>
-      );
-    case 'Forecasting':
-      return (
-        <svg {...commonProps}>
-          <path d="M4 19V5" />
-          <path d="M8 17V9" />
-          <path d="M12 17V5" />
-          <path d="M16 17v-6" />
-          <path d="M20 17v-3" />
-        </svg>
-      );
-    case 'Reports':
-      return (
-        <svg {...commonProps}>
-          <path d="M6 3h9l3 3v15H6Z" />
-          <path d="M14 3v4h4" />
-          <path d="M9 13h6" />
-          <path d="M9 17h6" />
-        </svg>
-      );
-    case 'User Management':
-      return (
-        <svg {...commonProps}>
-          <circle cx="9" cy="8" r="3" />
-          <path d="M3 20a6 6 0 0 1 12 0" />
-          <path d="M16 11h5" />
-          <path d="M18.5 8.5v5" />
-        </svg>
-      );
-    case 'Audit Logs':
-      return (
-        <svg {...commonProps}>
-          <path d="M6 3h12v18H6Z" />
-          <path d="M9 7h6" />
-          <path d="M9 11h6" />
-          <path d="M9 15h4" />
-          <path d="M17 18.5 19 21" />
-        </svg>
-      );
-    case 'Account & System':
-      return (
-        <svg {...commonProps}>
-          <circle cx="12" cy="12" r="3" />
-          <path d="M19.4 15a8 8 0 0 0 .1-6" />
-          <path d="M4.5 9a8 8 0 0 0 .1 6" />
-          <path d="m8 4 1.5 2.5" />
-          <path d="m16 4-1.5 2.5" />
-          <path d="m8 20 1.5-2.5" />
-          <path d="m16 20-1.5-2.5" />
-        </svg>
-      );
-  }
+type NavListProps = {
+  groups: NavGroup[];
+  activePage: DashboardPageName;
+  collapsed?: boolean;
+  hidden?: boolean;
+  onNavigate: (page: DashboardPageName) => void;
+};
+
+function NavButton({
+  item,
+  isActive,
+  collapsed,
+  hidden,
+  onNavigate,
+}: {
+  item: DashboardPageName;
+  isActive: boolean;
+  collapsed?: boolean;
+  hidden?: boolean;
+  onNavigate: (page: DashboardPageName) => void;
+}) {
+  const Icon = pageIcons[item];
+
+  return (
+    <button
+      type="button"
+      className={classNames('app-shell__nav-item', isActive && 'is-active')}
+      aria-current={isActive ? 'page' : undefined}
+      aria-label={collapsed ? pageLabels[item] : undefined}
+      tabIndex={hidden ? -1 : undefined}
+      onClick={() => onNavigate(item)}
+    >
+      <span className="app-shell__nav-icon">
+        <Icon aria-hidden="true" />
+      </span>
+      <span className="app-shell__nav-text">{pageLabels[item]}</span>
+      {collapsed ? <span className="app-shell__nav-tooltip" role="tooltip">{pageLabels[item]}</span> : null}
+    </button>
+  );
+}
+
+function NavList({ groups, activePage, collapsed, hidden, onNavigate }: NavListProps) {
+  return (
+    <nav className="app-shell__nav" aria-label="Dashboard sections">
+      {groups.map((group) => (
+        <section className="app-shell__nav-group" key={group.label}>
+          <h2 className="app-shell__nav-label">{group.label}</h2>
+          <ul className="app-shell__nav-list">
+            {group.items.map((item) => (
+              <li key={item}>
+                <NavButton
+                  item={item}
+                  isActive={item === activePage}
+                  collapsed={collapsed}
+                  hidden={hidden}
+                  onNavigate={onNavigate}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </nav>
+  );
+}
+
+function BrandBlock({ collapsed }: { collapsed?: boolean }) {
+  return (
+    <div className="app-shell__brand" aria-label="KING OF CLOUDS VAPE SHOP">
+      {collapsed ? <span className="app-shell__brand-mark" aria-hidden="true">KOC</span> : <BrandLogo size={40} decorative />}
+      <div className="app-shell__brand-copy">
+        <p className="app-shell__brand-name">KING OF CLOUDS</p>
+        <p className="app-shell__brand-subtitle">Inventory, Sales &amp; Forecasting</p>
+      </div>
+      {collapsed ? <span className="sr-only">KING OF CLOUDS</span> : null}
+    </div>
+  );
 }
 
 export default function AppShell({
@@ -195,155 +206,199 @@ export default function AppShell({
   className,
   children,
 }: AppShellProps) {
-  const [isNavOpen, setIsNavOpen] = useState(false);
-  const [isMobileNav, setIsMobileNav] = useState(false);
-  const visibleGroups = navigationGroups.filter(
-    (group) => !group.roles || group.roles.includes(userRole),
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem('koc_sidebar_collapsed') === 'true');
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const visibleGroups = useMemo(
+    () => navigationGroups.filter((group) => !group.roles || group.roles.includes(userRole)),
+    [userRole],
   );
   const activeSection = visibleGroups.find((group) => group.items.includes(activePage))?.label ?? '';
-  const isNavHidden = isMobileNav && !isNavOpen;
+  const identity = userDisplayName || userEmail || 'User';
+  const initials = userInitials(userDisplayName, userEmail);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(max-width: 900px)');
-    const syncNavMode = () => {
-      setIsMobileNav(mediaQuery.matches);
-      if (!mediaQuery.matches) {
-        setIsNavOpen(false);
+    localStorage.setItem('koc_sidebar_collapsed', String(isSidebarCollapsed));
+  }, [isSidebarCollapsed]);
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) return undefined;
+
+    accountMenuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+
+    const closeOnOutsidePress = (event: MouseEvent) => {
+      if (!accountMenuRef.current?.contains(event.target as Node)) {
+        setIsAccountMenuOpen(false);
       }
     };
-
-    syncNavMode();
-    mediaQuery.addEventListener('change', syncNavMode);
-
-    return () => mediaQuery.removeEventListener('change', syncNavMode);
-  }, []);
-
-  useEffect(() => {
-    if (!isNavOpen) return undefined;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
+    const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setIsNavOpen(false);
+        setIsAccountMenuOpen(false);
+        accountMenuRef.current?.querySelector<HTMLElement>('.app-shell__account-trigger')?.focus();
+      } else if (accountMenuRef.current?.contains(event.target as Node) && ['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+        event.preventDefault();
+        const items = Array.from(accountMenuRef.current.querySelectorAll<HTMLElement>('[role="menuitem"]'));
+        const current = items.indexOf(document.activeElement as HTMLElement);
+        const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1
+          : (current + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+        items[next]?.focus();
       }
     };
 
-    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', closeOnOutsidePress);
+    document.addEventListener('keydown', closeOnEscape);
 
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isNavOpen]);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsidePress);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [isAccountMenuOpen]);
 
   const handleNavigate = (page: DashboardPageName) => {
     onNavigate?.(page);
-    setIsNavOpen(false);
+    setIsMobileNavOpen(false);
+    setIsAccountMenuOpen(false);
   };
 
   return (
-    <div
-      className={classNames(
-        'app-shell',
-        isNavOpen && 'app-shell--nav-open',
-        className,
-      )}
-    >
-      <aside
-        id="app-shell-sidebar"
-        className="app-shell__sidebar"
-        aria-label="Primary navigation"
-        aria-hidden={isNavHidden || undefined}
-      >
-        <div className="app-shell__brand" aria-label="Sales and Inventory System">
-          <span className="app-shell__brand-mark" aria-hidden="true">
-            SI
-          </span>
-          <div>
-            <p className="app-shell__brand-name">Sales & Inventory</p>
-            <p className="app-shell__brand-subtitle">Predictive analysis</p>
-          </div>
-        </div>
-
-        <nav className="app-shell__nav" aria-label="Dashboard sections">
-          {visibleGroups.map((group) => (
-            <section className="app-shell__nav-group" key={group.label}>
-              <h2 className="app-shell__nav-label">{group.label}</h2>
-              <ul className="app-shell__nav-list">
-                {group.items.map((item) => {
-                  const isActive = item === activePage;
-
-                  return (
-                    <li key={item}>
-                      <button
-                        type="button"
-                        className={classNames(
-                          'app-shell__nav-item',
-                          isActive && 'is-active',
-                        )}
-                        aria-current={isActive ? 'page' : undefined}
-                        tabIndex={isNavHidden ? -1 : undefined}
-                        onClick={() => handleNavigate(item)}
-                      >
-                        <span className="app-shell__nav-icon">
-                          <NavIcon page={item} />
-                        </span>
-                        <span>{item}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-          ))}
-        </nav>
-      </aside>
-
-      {isNavOpen ? (
-        <button
-          type="button"
-          className="app-shell__overlay"
-          aria-label="Close navigation"
-          onClick={() => setIsNavOpen(false)}
-        />
-      ) : null}
-
-      <div className="app-shell__body">
-        <header className="app-shell__topbar">
-          <div className="app-shell__topbar-left">
-            <button
+    <div className={classNames('app-shell', isSidebarCollapsed && 'app-shell--collapsed', className)}>
+        <aside id="app-shell-sidebar" className="app-shell__sidebar" aria-label="Primary navigation">
+          <div className="app-shell__sidebar-header">
+            <BrandBlock collapsed={isSidebarCollapsed} />
+            <Button
               type="button"
-              className="app-shell__menu-button"
-              aria-label={isNavOpen ? 'Close navigation' : 'Open navigation'}
-              aria-controls="app-shell-sidebar"
-              aria-expanded={isNavOpen}
-              onClick={() => setIsNavOpen((current) => !current)}
+              variant="ghost"
+              size="icon"
+              className="app-shell__collapse-button"
+              aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              onClick={() => setIsSidebarCollapsed((current) => !current)}
             >
-              <span aria-hidden="true" />
-              <span aria-hidden="true" />
-              <span aria-hidden="true" />
-            </button>
-            <div className="app-shell__context" aria-label="Current section">
-              <span>Section</span>
-              <strong>{activeSection}</strong>
+              {isSidebarCollapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
+            </Button>
+          </div>
+
+          <div className="app-shell__sidebar-scroll">
+            <NavList groups={visibleGroups} activePage={activePage} collapsed={isSidebarCollapsed} onNavigate={handleNavigate} />
+          </div>
+
+          <div className="app-shell__sidebar-footer">
+            <div className="app-shell__mini-account">
+              <span className="app-shell__avatar" aria-hidden="true">{initials}</span>
+              <div className="app-shell__mini-account-copy">
+                <strong>{identity}</strong>
+                <span>{userRole}</span>
+              </div>
             </div>
           </div>
+        </aside>
 
-          {userEmail || onLogout ? (
-            <div className="app-shell__user-area">
-              {userDisplayName || userEmail ? (
-                <span className="app-shell__user-email" title={userEmail}>
-                  {userDisplayName || userEmail}
-                </span>
-              ) : null}
-              <span className="app-shell__user-role">{userRole}</span>
+        <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+          <SheetContent side="left" className="app-shell__mobile-sheet">
+            <SheetHeader className="app-shell__mobile-sheet-header">
+              <BrandBlock />
+              <SheetTitle className="sr-only">Navigation</SheetTitle>
+              <SheetDescription className="sr-only">Primary application navigation</SheetDescription>
+            </SheetHeader>
+            <div className="app-shell__mobile-sheet-scroll">
+              <NavList groups={visibleGroups} activePage={activePage} hidden={!isMobileNavOpen} onNavigate={handleNavigate} />
+            </div>
+            <div className="app-shell__mobile-sheet-footer">
+              <div className="app-shell__mini-account">
+                <span className="app-shell__avatar" aria-hidden="true">{initials}</span>
+                <div className="app-shell__mini-account-copy">
+                  <strong>{identity}</strong>
+                  <span>{userRole}</span>
+                </div>
+              </div>
               {onLogout ? (
-                <Button variant="secondary" onClick={onLogout}>
-                  Log out
+                <Button type="button" variant="outline" onClick={onLogout}>
+                  <LogOut aria-hidden="true" />
+                  Logout
                 </Button>
               ) : null}
             </div>
-          ) : null}
-        </header>
+          </SheetContent>
+        </Sheet>
 
-        <main className="app-shell__main">{children}</main>
+        <div className="app-shell__body">
+          <header className="app-shell__topbar">
+            <div className="app-shell__topbar-left">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="app-shell__menu-button"
+                aria-label="Open navigation"
+                aria-controls="app-shell-sidebar"
+                aria-expanded={isMobileNavOpen}
+                onClick={() => setIsMobileNavOpen(true)}
+              >
+                <Menu aria-hidden="true" />
+              </Button>
+              <div className="app-shell__context" aria-label="Current page">
+                <span>{activeSection}</span>
+                <strong>{pageLabels[activePage]}</strong>
+              </div>
+            </div>
+
+            <div className="app-shell__topbar-actions">
+              <ThemeToggle />
+              {userRole === 'Admin' && <NotificationCenter onNavigate={handleNavigate} onOpen={() => setIsAccountMenuOpen(false)} />}
+
+              <Badge variant="outline" className="app-shell__role-badge">{userRole}</Badge>
+
+              <div className="app-shell__account" ref={accountMenuRef} onBlur={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setIsAccountMenuOpen(false);
+              }}>
+                <button
+                  type="button"
+                  className="app-shell__account-trigger"
+                  aria-label="Open account menu"
+                  aria-expanded={isAccountMenuOpen}
+                  aria-haspopup="menu"
+                  onClick={() => setIsAccountMenuOpen((current) => !current)}
+                >
+                  <span className="app-shell__avatar" aria-hidden="true">{initials}</span>
+                  <span className="app-shell__account-trigger-copy">
+                    <strong>{identity}</strong>
+                    <span>{userEmail}</span>
+                  </span>
+                </button>
+                {isAccountMenuOpen ? (
+                  <div className="app-shell__account-menu" role="menu" aria-label="Account menu">
+                    <div className="app-shell__account-menu-label">
+                      <span className="app-shell__menu-label">
+                        <strong>{identity}</strong>
+                        <span>{userRole}</span>
+                      </span>
+                    </div>
+                    <button type="button" className="app-shell__account-menu-item" role="menuitem" onClick={() => handleNavigate('Account & System')}>
+                      <Settings aria-hidden="true" />
+                      Account &amp; System
+                    </button>
+                    {onLogout ? (
+                      <button
+                        type="button"
+                        className="app-shell__account-menu-item app-shell__account-menu-item--danger"
+                        role="menuitem"
+                        onClick={() => {
+                          setIsAccountMenuOpen(false);
+                          onLogout();
+                        }}
+                      >
+                        <LogOut aria-hidden="true" />
+                        Logout
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </header>
+
+          <main className="app-shell__main">{children}</main>
+        </div>
       </div>
-    </div>
   );
 }

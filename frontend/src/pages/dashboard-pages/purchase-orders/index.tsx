@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Plus, Eye, Trash2 } from 'lucide-react';
+import { BentoCard, MetricCard } from '../../../components/layout';
 import PageHeader from '../../../components/PageHeader';
 import {
   Alert,
   Badge,
   Button,
-  Card,
   ConfirmDialog,
   EmptyState,
   Input,
@@ -113,7 +114,7 @@ function statusLabel(status: PurchaseOrderStatus) {
 function statusVariant(status: PurchaseOrderStatus) {
   switch (status) {
     case 'DRAFT':
-      return 'warning';
+      return 'neutral';
     case 'ORDERED':
       return 'info';
     case 'PARTIALLY_RECEIVED':
@@ -670,13 +671,12 @@ export default function PurchaseOrdersPage({
       onNavigate={onNavigate}
       className="dashboard-page dashboard-page--purchase-orders"
     >
-      <section className="purchase-orders-page" aria-label="Purchase Orders workspace">
+      <section className="purchase-orders-page operational-page" aria-label="Purchase Orders workspace">
         <PageHeader
           eyebrow="Procurement"
           title="Purchase Orders"
-          description="Create supplier orders and receive purchased inventory."
-          actionLabel="Create Purchase Order"
-          onAction={openCreateModal}
+          description="Create, review, order, and receive supplier purchase orders."
+          secondaryActions={<Button iconStart={<Plus size={16} />} onClick={openCreateModal}>New Purchase Order</Button>}
         />
 
         {notice ? (
@@ -686,14 +686,14 @@ export default function PurchaseOrdersPage({
         ) : null}
 
         <section className="purchase-order-summary" aria-label="Purchase order summary">
-          <Card padding="compact"><span>Total Purchase Orders</span><strong>{summary.total}</strong></Card>
-          <Card padding="compact"><span>Draft</span><strong>{summary.draft}</strong></Card>
-          <Card padding="compact"><span>Open Orders</span><strong>{summary.open}</strong></Card>
-          <Card padding="compact"><span>Received</span><strong>{summary.received}</strong></Card>
+          <MetricCard label="Total Purchase Orders" value={summary.total} />
+          <MetricCard label="Draft" value={summary.draft} tone="default" />
+          <MetricCard label="Open Orders" value={summary.open} tone="warning" />
+          <MetricCard label="Received" value={summary.received} tone="success" />
         </section>
 
-        <Card padding="default" className="purchase-order-card">
-          <div className="purchase-order-toolbar">
+        <BentoCard padding="standard" variant="table" title="Purchase Order Register" className="purchase-order-card operational-table-card">
+          <div className="purchase-order-toolbar operational-toolbar">
             <Input
               label="Search"
               type="search"
@@ -744,8 +744,8 @@ export default function PurchaseOrdersPage({
           ) : null}
 
           {!loading && !error && filteredOrders.length > 0 ? (
-            <div className="purchase-order-table-wrap">
-              <table className="purchase-order-table">
+            <div className="purchase-order-table-wrap operational-table-wrap">
+              <table className="purchase-order-table operational-table">
                 <thead>
                   <tr>
                     <th scope="col">PO Number</th>
@@ -772,7 +772,7 @@ export default function PurchaseOrdersPage({
                       <td>{formatDate(order.createdAt)}</td>
                       <td>
                         <div className="purchase-order-actions">
-                          <Button variant="ghost" onClick={() => void openDetail(order.id)}>View</Button>
+                          <Button variant="ghost" iconStart={<Eye size={15} />} onClick={() => void openDetail(order.id)}>View</Button>
                           {order.status === 'DRAFT' ? (
                             <Button
                               variant="secondary"
@@ -802,7 +802,7 @@ export default function PurchaseOrdersPage({
               </table>
             </div>
           ) : null}
-        </Card>
+        </BentoCard>
 
         <Modal
           open={createOpen}
@@ -815,7 +815,7 @@ export default function PurchaseOrdersPage({
             }
           }}
           closeOnBackdrop={!submitting}
-          width="980px"
+          width="960px"
           footer={
             <>
               <Button
@@ -832,7 +832,7 @@ export default function PurchaseOrdersPage({
             </>
           }
         >
-          <form id="purchase-order-create-form" className="purchase-order-form" onSubmit={submitCreate}>
+          <form id="purchase-order-create-form" className="purchase-order-form operational-form" onSubmit={submitCreate}>
             {noActiveOptions ? (
               <Alert variant="warning" title="Procurement options unavailable">
                 Active suppliers and active products are required before purchase orders can be created.
@@ -880,7 +880,7 @@ export default function PurchaseOrdersPage({
                     <Input label="Quantity Ordered" type="number" min="1" step="1" value={line.quantityOrdered} onChange={(event) => updateCreateLine(line.id, 'quantityOrdered', event.target.value)} required />
                     <Input label="Unit Cost" type="number" min="0" step="0.01" value={line.unitCost} onChange={(event) => updateCreateLine(line.id, 'unitCost', event.target.value)} required />
                     <div className="purchase-order-line-total"><span>Line Total</span><strong>{formatMoney(lineTotal)}</strong></div>
-                    <Button variant="ghost" onClick={() => removeCreateLine(line.id)} disabled={createLines.length === 1}>Remove</Button>
+                    <Button variant="ghost" title="Remove item" aria-label={`Remove item ${index + 1}`} onClick={() => removeCreateLine(line.id)} disabled={createLines.length === 1}><Trash2 size={16} /></Button>
                   </div>
                 );
               })}
@@ -901,7 +901,7 @@ export default function PurchaseOrdersPage({
               setDetailError(null);
             }
           }}
-          width="980px"
+          width="960px"
           footer={
             detail ? (
               <>
@@ -946,8 +946,8 @@ export default function PurchaseOrdersPage({
                 <div><span>Updated By</span><strong>{userLabel(detail.updatedBy)}</strong></div>
                 <div className="purchase-order-detail-wide"><span>Notes</span><strong>{detail.notes || '-'}</strong></div>
               </div>
-              <div className="purchase-order-table-wrap">
-                <table className="purchase-order-table purchase-order-item-table">
+              <div className="purchase-order-table-wrap operational-table-wrap">
+                <table className="purchase-order-table purchase-order-item-table operational-table">
                   <thead>
                     <tr><th>Product</th><th>SKU</th><th>Ordered</th><th>Received</th><th>Remaining</th><th>Unit Cost</th><th>Line Total</th></tr>
                   </thead>
@@ -987,7 +987,7 @@ export default function PurchaseOrdersPage({
           }
         >
           {detail ? (
-            <form id="purchase-order-receive-form" className="purchase-order-form" onSubmit={submitReceive}>
+            <form id="purchase-order-receive-form" className="purchase-order-form operational-form" onSubmit={submitReceive}>
               <div className="purchase-order-receive-lines">
                 {detail.items.filter((item) => item.remainingQuantity > 0).map((item) => {
                   const line = receiveLines.find((current) => current.purchaseOrderItemId === item.id);

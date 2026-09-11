@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import PageHeader from '../../../components/PageHeader';
 import {
   Alert,
@@ -344,7 +345,7 @@ function PaginationControls({
         onClick={() => onPageChange(pagination.page - 1)}
         disabled={loading || pagination.page <= 1}
       >
-        Previous
+        <ChevronLeft size={16} aria-hidden="true" /> Previous
       </Button>
       <span>
         Page {pagination.page} of {pagination.totalPages}
@@ -354,7 +355,7 @@ function PaginationControls({
         onClick={() => onPageChange(pagination.page + 1)}
         disabled={loading || pagination.page >= pagination.totalPages}
       >
-        Next
+        Next <ChevronRight size={16} aria-hidden="true" />
       </Button>
     </nav>
   );
@@ -504,11 +505,11 @@ export default function AuditLogsPage({
         onNavigate={onNavigate}
         className="dashboard-page dashboard-page--audit-logs"
       >
-        <section className="audit-logs-page" aria-label="Audit Logs workspace">
+        <section className="audit-logs-page operational-page" aria-label="Audit Logs workspace">
           <PageHeader
             eyebrow="Administration"
             title="Audit Logs"
-            description="Review system activity and authentication history."
+            description="Review administrative and operational activity recorded by the system."
           />
           <Alert variant="error" title="Permission required">
             You do not have permission to view audit logs.
@@ -527,19 +528,27 @@ export default function AuditLogsPage({
       onNavigate={onNavigate}
       className="dashboard-page dashboard-page--audit-logs"
     >
-      <section className="audit-logs-page" aria-label="Audit Logs workspace">
+      <section className="audit-logs-page operational-page" aria-label="Audit Logs workspace">
         <PageHeader
           eyebrow="Administration"
           title="Audit Logs"
-          description="Review system activity and authentication history."
+          description="Review administrative and operational activity recorded by the system."
         />
 
-        <div className="audit-tabs" role="tablist" aria-label="Audit log sections">
+        <div className="audit-tabs" role="tablist" aria-label="Audit log sections"
+          onKeyDown={(event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const next = event.key === 'Home' ? 'activity' : event.key === 'End' ? 'login-history' : activeTab === 'activity' ? 'login-history' : 'activity';
+            setActiveTab(next);
+            document.getElementById(`audit-tab-${next}`)?.focus();
+          }}>
           <button
             type="button"
             id="audit-tab-activity"
             role="tab"
             aria-selected={activeTab === 'activity'}
+            tabIndex={activeTab === 'activity' ? 0 : -1}
             aria-controls="audit-panel-activity"
             className={activeTab === 'activity' ? 'is-active' : undefined}
             onClick={() => setActiveTab('activity')}
@@ -551,6 +560,7 @@ export default function AuditLogsPage({
             id="audit-tab-login-history"
             role="tab"
             aria-selected={activeTab === 'login-history'}
+            tabIndex={activeTab === 'login-history' ? 0 : -1}
             aria-controls="audit-panel-login-history"
             className={activeTab === 'login-history' ? 'is-active' : undefined}
             onClick={() => setActiveTab('login-history')}
@@ -603,14 +613,14 @@ export default function AuditLogsPage({
             </form>
 
             {auditLoading ? (
-              <div className="audit-state" role="status" aria-live="polite">
+              <div className="audit-state operational-state" role="status" aria-live="polite">
                 <Spinner size="md" label="Loading audit activity" />
                 <span>Loading audit activity...</span>
               </div>
             ) : null}
 
             {auditError && !auditLoading ? (
-              <div className="audit-state">
+              <div className="audit-state operational-state">
                 <Alert variant="error" title="Unable to load audit logs">{auditError}</Alert>
                 <Button variant="secondary" onClick={retryActiveTab}>Retry</Button>
               </div>
@@ -622,8 +632,8 @@ export default function AuditLogsPage({
 
             {!auditLoading && !auditError && auditItems.length > 0 ? (
               <>
-                <div className="audit-table-wrap">
-                  <table className="audit-table">
+                <div className="audit-table-wrap operational-table-wrap">
+                  <table className="audit-table operational-table">
                     <thead>
                       <tr>
                         <th scope="col">Date / Time</th>
@@ -654,7 +664,7 @@ export default function AuditLogsPage({
                           <td>{humanizeEnum(event.entityType)}</td>
                           <td>{shortText(event.entityLabel)}</td>
                           <td><Badge variant={statusVariant(event.status)}>{humanizeEnum(event.status)}</Badge></td>
-                          <td><Button variant="ghost" onClick={() => setSelectedAudit(event)}>View Details</Button></td>
+                          <td><Button variant="ghost" iconStart={<Eye size={15} />} onClick={() => setSelectedAudit(event)}>View Details</Button></td>
                         </tr>
                       ))}
                     </tbody>
@@ -706,14 +716,14 @@ export default function AuditLogsPage({
             </form>
 
             {loginLoading ? (
-              <div className="audit-state" role="status" aria-live="polite">
+              <div className="audit-state operational-state" role="status" aria-live="polite">
                 <Spinner size="md" label="Loading login history" />
                 <span>Loading login history...</span>
               </div>
             ) : null}
 
             {loginError && !loginLoading ? (
-              <div className="audit-state">
+              <div className="audit-state operational-state">
                 <Alert variant="error" title="Unable to load audit logs">{loginError}</Alert>
                 <Button variant="secondary" onClick={retryActiveTab}>Retry</Button>
               </div>
@@ -725,8 +735,8 @@ export default function AuditLogsPage({
 
             {!loginLoading && !loginError && loginItems.length > 0 ? (
               <>
-                <div className="audit-table-wrap">
-                  <table className="audit-table audit-table--login">
+                <div className="audit-table-wrap operational-table-wrap">
+                  <table className="audit-table audit-table--login operational-table">
                     <thead>
                       <tr>
                         <th scope="col">Date / Time</th>
@@ -756,7 +766,7 @@ export default function AuditLogsPage({
                             <td>{humanizeEnum(entry.failureReason)}</td>
                             <td>{shortText(entry.ipAddress)}</td>
                             <td><span className="audit-truncate" title={entry.userAgent || undefined}>{shortText(entry.userAgent)}</span></td>
-                            <td><Button variant="ghost" onClick={() => setSelectedLogin(entry)}>View Details</Button></td>
+                            <td><Button variant="ghost" iconStart={<Eye size={15} />} onClick={() => setSelectedLogin(entry)}>View Details</Button></td>
                           </tr>
                         );
                       })}
@@ -774,7 +784,7 @@ export default function AuditLogsPage({
           title="Audit Event Details"
           description={selectedAudit ? operationLabel(selectedAudit.metadata) || humanizeEnum(selectedAudit.action) : undefined}
           onClose={() => setSelectedAudit(null)}
-          width="980px"
+          width="960px"
           footer={<Button variant="secondary" onClick={() => setSelectedAudit(null)}>Close</Button>}
         >
           {selectedAudit ? (
@@ -808,7 +818,7 @@ export default function AuditLogsPage({
           title="Login History Details"
           description={selectedLogin ? `${humanizeEnum(selectedLogin.eventType)} / ${humanizeEnum(selectedLogin.status)}` : undefined}
           onClose={() => setSelectedLogin(null)}
-          width="820px"
+          width="760px"
           footer={<Button variant="secondary" onClick={() => setSelectedLogin(null)}>Close</Button>}
         >
           {selectedLogin ? (
