@@ -1,5 +1,5 @@
 import { Suspense, useState, type ComponentType } from 'react';
-import AppShell from '../layouts/AppShell';
+import AppShell, { AppShellIdentityProvider } from '../layouts/AppShell';
 import Spinner from '../components/ui/Spinner';
 import PageLoadBoundary from '../components/system/PageLoadBoundary';
 import type { User } from '../types/auth';
@@ -90,7 +90,8 @@ export default function Dashboard({ user, defaultRoute, onLogout, onUserUpdated 
   const pageStatus = (failed: boolean) => (
     <AppShell
       activePage={safeActivePage}
-      userEmail={user.fullName || user.username || user.email}
+      userEmail={user.email}
+      userDisplayName={user.fullName || user.username || undefined}
       userRole={user.role}
       onLogout={onLogout}
       onNavigate={handleNavigate}
@@ -106,13 +107,14 @@ export default function Dashboard({ user, defaultRoute, onLogout, onUserUpdated 
   );
 
   return (
-    <PageLoadBoundary key={safeActivePage} fallback={pageStatus(true)}>
-      <Suspense fallback={pageStatus(false)}>
-        <ActivePage
+    <AppShellIdentityProvider user={user}>
+      <PageLoadBoundary key={safeActivePage} fallback={pageStatus(true)}>
+        <Suspense fallback={pageStatus(false)}>
+          <ActivePage
           key={safeActivePage === 'Help & System Guide' ? helpTopic : safeActivePage}
           helpTopic={helpTopic}
           onOpenHelp={(topic) => { setHelpTopic(topic); setActivePage('Help & System Guide'); }}
-          userEmail={user.fullName || user.username || user.email}
+          userEmail={user.email}
           user={user}
           onLogout={onLogout}
           onNavigate={handleNavigate}
@@ -121,8 +123,9 @@ export default function Dashboard({ user, defaultRoute, onLogout, onUserUpdated 
           purchaseOrderPrefill={safeActivePage === 'Purchase Orders' ? purchaseOrderPrefill : null}
           onCreatePurchaseOrderFromPrefill={handleCreatePurchaseOrderFromPrefill}
           onPurchaseOrderPrefillConsumed={() => setPurchaseOrderPrefill(null)}
-        />
-      </Suspense>
-    </PageLoadBoundary>
+          />
+        </Suspense>
+      </PageLoadBoundary>
+    </AppShellIdentityProvider>
   );
 }

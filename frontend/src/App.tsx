@@ -5,6 +5,7 @@ import Login from './pages/login';
 import Home from './pages/home';
 import PasswordChange from './pages/password-change';
 import type { AuthResponse, User } from './types/auth';
+import { resetNotificationSession } from './components/notifications/notificationSession';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -59,6 +60,7 @@ function App() {
   };
 
   const handleLogout = () => {
+    resetNotificationSession();
     setPublicView('home');
     localStorage.removeItem('auth_token');
     sessionStorage.removeItem('auth_token');

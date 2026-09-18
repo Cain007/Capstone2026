@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   ArrowLeftRight,
   BookOpen,
@@ -47,6 +47,18 @@ type AppShellProps = {
   className?: string;
   children: ReactNode;
 };
+
+type AppShellIdentity = {
+  email: string;
+  fullName: string | null;
+  username: string | null;
+};
+
+const AppShellIdentityContext = createContext<AppShellIdentity | null>(null);
+
+export function AppShellIdentityProvider({ user, children }: { user: AppShellIdentity; children: ReactNode }) {
+  return <AppShellIdentityContext.Provider value={user}>{children}</AppShellIdentityContext.Provider>;
+}
 
 type NavGroup = {
   label: string;
@@ -117,6 +129,17 @@ function userInitials(name?: string, email?: string) {
     .join('') || 'U';
 }
 
+function accountDisplayName(...values: Array<string | null | undefined>) {
+  const fallback = values.map((value) => value?.trim()).find(Boolean);
+  if (!fallback) return 'Account';
+  return fallback.includes('@') ? fallback.split('@')[0] || 'Account' : fallback;
+}
+
+function accountEmail(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed?.includes('@') ? trimmed : undefined;
+}
+
 type NavListProps = {
   groups: NavGroup[];
   activePage: DashboardPageName;
@@ -139,6 +162,12 @@ function NavButton({
   onNavigate: (page: DashboardPageName) => void;
 }) {
   const Icon = pageIcons[item];
+  const [tooltipTop, setTooltipTop] = useState<number | null>(null);
+
+  const updateTooltipPosition = (target: HTMLElement) => {
+    const rect = target.getBoundingClientRect();
+    setTooltipTop(rect.top + rect.height / 2);
+  };
 
   return (
     <button
@@ -146,14 +175,25 @@ function NavButton({
       className={classNames('app-shell__nav-item', isActive && 'is-active')}
       aria-current={isActive ? 'page' : undefined}
       aria-label={collapsed ? pageLabels[item] : undefined}
+      title={collapsed ? pageLabels[item] : undefined}
       tabIndex={hidden ? -1 : undefined}
+      onFocus={(event) => updateTooltipPosition(event.currentTarget)}
+      onPointerEnter={(event) => updateTooltipPosition(event.currentTarget)}
       onClick={() => onNavigate(item)}
     >
       <span className="app-shell__nav-icon">
         <Icon aria-hidden="true" />
       </span>
       <span className="app-shell__nav-text">{pageLabels[item]}</span>
-      {collapsed ? <span className="app-shell__nav-tooltip" role="tooltip">{pageLabels[item]}</span> : null}
+      {collapsed ? (
+        <span
+          className="app-shell__nav-tooltip"
+          role="tooltip"
+          style={tooltipTop === null ? undefined : { '--app-shell-tooltip-top': `${tooltipTop}px` } as CSSProperties}
+        >
+          {pageLabels[item]}
+        </span>
+      ) : null}
     </button>
   );
 }
@@ -186,7 +226,7 @@ function NavList({ groups, activePage, collapsed, hidden, onNavigate }: NavListP
 function BrandBlock({ collapsed }: { collapsed?: boolean }) {
   return (
     <div className="app-shell__brand" aria-label="KING OF CLOUDS VAPE SHOP">
-      {collapsed ? <span className="app-shell__brand-mark" aria-hidden="true">KOC</span> : <BrandLogo size={40} decorative />}
+      <BrandLogo size={collapsed ? 36 : 40} decorative />
       <div className="app-shell__brand-copy">
         <p className="app-shell__brand-name">KING OF CLOUDS</p>
         <p className="app-shell__brand-subtitle">Inventory, Sales &amp; Forecasting</p>
@@ -210,13 +250,21 @@ export default function AppShell({
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => localStorage.getItem('koc_sidebar_collapsed') === 'true');
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement | null>(null);
+  const authenticatedIdentity = useContext(AppShellIdentityContext);
   const visibleGroups = useMemo(
     () => navigationGroups.filter((group) => !group.roles || group.roles.includes(userRole)),
     [userRole],
   );
   const activeSection = visibleGroups.find((group) => group.items.includes(activePage))?.label ?? '';
-  const identity = userDisplayName || userEmail || 'User';
-  const initials = userInitials(userDisplayName, userEmail);
+  const identity = accountDisplayName(
+    authenticatedIdentity?.fullName,
+    authenticatedIdentity?.username,
+    userDisplayName,
+    authenticatedIdentity?.email,
+    userEmail,
+  );
+  const email = accountEmail(authenticatedIdentity?.email) ?? accountEmail(userEmail);
+  const initials = userInitials(identity, email);
 
   useEffect(() => {
     localStorage.setItem('koc_sidebar_collapsed', String(isSidebarCollapsed));
@@ -287,7 +335,7 @@ export default function AppShell({
               <span className="app-shell__avatar" aria-hidden="true">{initials}</span>
               <div className="app-shell__mini-account-copy">
                 <strong>{identity}</strong>
-                <span>{userRole}</span>
+                {email ? <span>{email}</span> : null}
               </div>
             </div>
           </div>
@@ -308,7 +356,7 @@ export default function AppShell({
                 <span className="app-shell__avatar" aria-hidden="true">{initials}</span>
                 <div className="app-shell__mini-account-copy">
                   <strong>{identity}</strong>
-                  <span>{userRole}</span>
+                  {email ? <span>{email}</span> : null}
                 </div>
               </div>
               {onLogout ? (
@@ -354,7 +402,7 @@ export default function AppShell({
                 <button
                   type="button"
                   className="app-shell__account-trigger"
-                  aria-label="Open account menu"
+                  aria-label={`Open account menu for ${identity}`}
                   aria-expanded={isAccountMenuOpen}
                   aria-haspopup="menu"
                   onClick={() => setIsAccountMenuOpen((current) => !current)}
@@ -362,7 +410,6 @@ export default function AppShell({
                   <span className="app-shell__avatar" aria-hidden="true">{initials}</span>
                   <span className="app-shell__account-trigger-copy">
                     <strong>{identity}</strong>
-                    <span>{userEmail}</span>
                   </span>
                 </button>
                 {isAccountMenuOpen ? (
@@ -370,6 +417,7 @@ export default function AppShell({
                     <div className="app-shell__account-menu-label">
                       <span className="app-shell__menu-label">
                         <strong>{identity}</strong>
+                        {email ? <span>{email}</span> : null}
                         <span>{userRole}</span>
                       </span>
                     </div>
