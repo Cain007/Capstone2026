@@ -12,9 +12,13 @@ import {
   recordAuditEventBestEffort,
   userEntityLabel,
 } from '../utils/audit.js';
+import {
+  EMAIL_PATTERN,
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_HASH_ROUNDS,
+} from '../utils/accountValidation.js';
+import { logError } from '../utils/safeLogger.js';
 
-const MIN_PASSWORD_LENGTH = 8;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const USER_STATUSES = ['ACTIVE', 'INACTIVE', 'SUSPENDED'] as const;
 const USER_ROLES = ['Admin', 'Staff'] as const;
 type UserStatus = (typeof USER_STATUSES)[number];
@@ -115,7 +119,7 @@ export async function listUsers(_request: Request, response: Response) {
 
     response.json({ users: users.map(serializeUser) });
   } catch (error) {
-    console.error('Listing users failed:', error);
+    logError('Listing users failed', error);
     response.status(500).json({ message: 'Unable to load users' });
   }
 }
@@ -141,7 +145,7 @@ export async function getUser(request: Request, response: Response) {
 
     response.json({ user: serializeUser(user) });
   } catch (error) {
-    console.error('Loading user failed:', error);
+    logError('Loading user failed', error);
     response.status(500).json({ message: 'Unable to load user' });
   }
 }
@@ -199,7 +203,7 @@ export async function createUser(request: Request, response: Response) {
   const actorUserId = request.authUser.id;
 
   try {
-    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+    const passwordHash = await bcrypt.hash(temporaryPassword, PASSWORD_HASH_ROUNDS);
     const user = await prisma.$transaction(async (transaction) => {
       const staffRole = await transaction.role.findUnique({
         where: { name: 'Staff' },
@@ -274,7 +278,7 @@ export async function createUser(request: Request, response: Response) {
       return;
     }
 
-    console.error('Creating user failed:', error);
+    logError('Creating user failed', error);
     response.status(500).json({ message: 'Unable to create user' });
   }
 }
@@ -410,7 +414,7 @@ export async function updateUser(request: Request, response: Response) {
       return;
     }
 
-    console.error('Updating user failed:', error);
+    logError('Updating user failed', error);
     response.status(500).json({ message: 'Unable to update user' });
   }
 }
@@ -500,7 +504,7 @@ export async function updateUserStatus(request: Request, response: Response) {
 
     response.json({ user: serializeUser(user) });
   } catch (error) {
-    console.error('Updating user status failed:', error);
+    logError('Updating user status failed', error);
     response.status(500).json({ message: 'Unable to update user status' });
   }
 }
@@ -544,7 +548,7 @@ export async function resetUserPassword(request: Request, response: Response) {
       return;
     }
 
-    const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+    const passwordHash = await bcrypt.hash(temporaryPassword, PASSWORD_HASH_ROUNDS);
     const user = await prisma.user.update({
       where: { id },
       data: { passwordHash, mustChangePassword: true },
@@ -570,7 +574,7 @@ export async function resetUserPassword(request: Request, response: Response) {
       user: serializeUser(user),
     });
   } catch (error) {
-    console.error('Resetting user password failed:', error);
+    logError('Resetting user password failed', error);
     response.status(500).json({ message: 'Unable to reset user password' });
   }
 }

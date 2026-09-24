@@ -16,8 +16,11 @@ import {
   recordLoginHistoryBestEffort,
   userEntityLabel,
 } from '../utils/audit.js';
-
-const MIN_PASSWORD_LENGTH = 8;
+import {
+  MIN_PASSWORD_LENGTH,
+  PASSWORD_HASH_ROUNDS,
+} from '../utils/accountValidation.js';
+import { logError } from '../utils/safeLogger.js';
 
 type PublicUserRecord = {
   id: string;
@@ -200,7 +203,7 @@ export async function login(request: Request, response: Response) {
       defaultRoute: defaultRoute(updatedUser.role.name),
     });
   } catch (error) {
-    console.error('Login failed:', error);
+    logError('Login failed', error);
     response.status(500).json({ message: 'Unable to sign in' });
   }
 }
@@ -233,7 +236,7 @@ export async function getCurrentUser(request: Request, response: Response) {
       defaultRoute: defaultRoute(user.role.name),
     });
   } catch (error) {
-    console.error('Loading current user failed:', error);
+    logError('Loading current user failed', error);
     response.status(500).json({ message: 'Unable to load user' });
   }
 }
@@ -296,7 +299,7 @@ export async function changePassword(request: Request, response: Response) {
       return;
     }
 
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await bcrypt.hash(newPassword, PASSWORD_HASH_ROUNDS);
     const updatedUser = await prisma.user.update({
       where: { id: user.id },
       data: { passwordHash, mustChangePassword: false },
@@ -322,7 +325,7 @@ export async function changePassword(request: Request, response: Response) {
       defaultRoute: defaultRoute(updatedUser.role.name),
     });
   } catch (error) {
-    console.error('Changing password failed:', error);
+    logError('Changing password failed', error);
     response.status(500).json({ message: 'Unable to change password' });
   }
 }

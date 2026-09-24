@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import type { Request } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { logError } from './safeLogger.js';
 
 type AuditClient = Prisma.TransactionClient | typeof prisma;
 
@@ -136,7 +137,7 @@ export async function recordLoginHistoryBestEffort(
   try {
     await recordLoginHistory(input);
   } catch (error) {
-    console.error('Recording login history failed:', error);
+    logError('Recording login history failed', error);
   }
 }
 
@@ -178,6 +179,6 @@ export async function recordAuditEventBestEffort(input: RecordAuditEventInput) {
   try {
     await recordAuditEvent(input);
   } catch (error) {
-    console.error('Recording audit event failed:', error);
+    logError('Recording audit event failed', error);
   }
 }

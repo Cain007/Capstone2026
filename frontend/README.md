@@ -2,6 +2,9 @@
 
 React/Vite frontend for KING OF CLOUDS VAPE SHOP inventory, sales, and forecasting management.
 
+Production deployment targets Node 24.x and Vercel builds from the `frontend`
+root with `npm ci`, `npm run build`, and `dist` as the output directory.
+
 ## Environment
 
 Copy `.env.example` to `.env` and set:

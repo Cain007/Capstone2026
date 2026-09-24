@@ -7,6 +7,7 @@ import {
 import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { recordAuditEvent } from '../utils/audit.js';
+import { logError } from '../utils/safeLogger.js';
 import {
   FORECAST_TIMEZONE,
   MOVING_AVERAGE_MODEL_VERSION,
@@ -339,7 +340,7 @@ export async function generateProductForecast(request: Request, response: Respon
 
     response.status(201).json({ forecast: serializeForecastRun(forecast) });
   } catch (error) {
-    console.error('Generating product forecast failed:', error);
+    logError('Generating product forecast failed', error);
     response.status(500).json({ message: 'Unable to generate forecast' });
   }
 }
@@ -384,7 +385,7 @@ export async function getLatestProductForecast(request: Request, response: Respo
 
     response.json({ forecast: serializeForecastRun(forecast) });
   } catch (error) {
-    console.error('Loading latest product forecast failed:', error);
+    logError('Loading latest product forecast failed', error);
     response.status(500).json({ message: 'Unable to load forecast' });
   }
 }
@@ -491,7 +492,7 @@ export async function getLatestProductForecastEvaluation(request: Request, respo
       points: evaluation.points,
     });
   } catch (error) {
-    console.error('Loading latest product forecast evaluation failed:', error);
+    logError('Loading latest product forecast evaluation failed', error);
     response.status(500).json({ message: 'Unable to load forecast evaluation' });
   }
 }
@@ -618,7 +619,7 @@ export async function getProductForecastInsights(request: Request, response: Res
       },
     });
   } catch (error) {
-    console.error('Loading product forecast insights failed:', error);
+    logError('Loading product forecast insights failed', error);
     response.status(500).json({ message: 'Unable to load forecast insights' });
   }
 }

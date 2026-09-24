@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma.js';
+import { logError } from '../utils/safeLogger.js';
 
 type TokenPayload = {
   userId: string;
@@ -85,7 +86,7 @@ export function requireRole(...allowedRoles: AllowedRole[]) {
       };
       next();
     } catch (error) {
-      console.error('Authorization lookup failed:', error);
+      logError('Authorization lookup failed', error);
       response.status(500).json({ message: 'Unable to authorize request' });
     }
   };

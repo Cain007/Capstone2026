@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { recordAuditEvent } from '../utils/audit.js';
+import { logError } from '../utils/safeLogger.js';
 
 const ALLOWED_CREATE_STATUSES = new Set<PurchaseOrderStatus>([
   PurchaseOrderStatus.DRAFT,
@@ -448,7 +449,7 @@ export async function createPurchaseOrder(request: Request, response: Response) 
       return;
     }
 
-    console.error('Creating purchase order failed:', error);
+    logError('Creating purchase order failed', error);
     response.status(500).json({ message: 'Unable to create purchase order' });
   }
 }
@@ -491,7 +492,7 @@ export async function listPurchaseOrders(request: Request, response: Response) {
       })),
     });
   } catch (error) {
-    console.error('Listing purchase orders failed:', error);
+    logError('Listing purchase orders failed', error);
     response.status(500).json({ message: 'Unable to load purchase orders' });
   }
 }
@@ -517,7 +518,7 @@ export async function getPurchaseOrder(request: Request, response: Response) {
 
     response.json({ purchaseOrder: serializePurchaseOrder(purchaseOrder) });
   } catch (error) {
-    console.error('Loading purchase order failed:', error);
+    logError('Loading purchase order failed', error);
     response.status(500).json({ message: 'Unable to load purchase order' });
   }
 }
@@ -620,7 +621,7 @@ export async function orderPurchaseOrder(request: Request, response: Response) {
       return;
     }
 
-    console.error('Marking purchase order as ordered failed:', error);
+    logError('Marking purchase order as ordered failed', error);
     response.status(500).json({ message: 'Unable to mark purchase order as ordered' });
   }
 }
@@ -872,7 +873,7 @@ export async function receivePurchaseOrder(request: Request, response: Response)
         return;
       }
 
-      console.error('Receiving purchase order failed:', error);
+      logError('Receiving purchase order failed', error);
       response.status(500).json({ message: 'Unable to receive purchase order' });
       return;
     }

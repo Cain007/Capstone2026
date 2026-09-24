@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { logError } from '../utils/safeLogger.js';
 import {
   FORECAST_TIMEZONE,
   addDays,
@@ -451,7 +452,7 @@ export async function getReportSummary(request: Request, response: Response) {
       forecastAttention: forecastReport.forecastAttention,
     });
   } catch (error) {
-    console.error('Loading report summary failed:', error);
+    logError('Loading report summary failed', error);
     response.status(500).json({ message: 'Unable to load report summary' });
   }
 }

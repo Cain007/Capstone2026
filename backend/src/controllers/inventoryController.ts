@@ -7,6 +7,7 @@ import {
 import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { recordAuditEvent } from '../utils/audit.js';
+import { logError } from '../utils/safeLogger.js';
 import {
   classifyStockHealth,
   recommendedReorderQuantity,
@@ -79,7 +80,7 @@ export async function listInventory(_request: Request, response: Response) {
 
     response.json({ inventory });
   } catch (error) {
-    console.error('Listing inventory failed:', error);
+    logError('Listing inventory failed', error);
     response.status(500).json({ message: 'Unable to load inventory' });
   }
 }
@@ -125,7 +126,7 @@ export async function getInventory(request: Request, response: Response) {
 
     response.json({ inventory, movements: product.inventoryMovements });
   } catch (error) {
-    console.error('Loading inventory failed:', error);
+    logError('Loading inventory failed', error);
     response.status(500).json({ message: 'Unable to load inventory' });
   }
 }
@@ -170,7 +171,7 @@ export async function listInventoryMovements(request: Request, response: Respons
 
     response.json({ movements });
   } catch (error) {
-    console.error('Listing inventory movements failed:', error);
+    logError('Listing inventory movements failed', error);
     response.status(500).json({ message: 'Unable to load inventory movements' });
   }
 }
@@ -298,7 +299,7 @@ export async function adjustInventory(request: Request, response: Response) {
       movement: result.movement,
     });
   } catch (error) {
-    console.error('Adjusting inventory failed:', error);
+    logError('Adjusting inventory failed', error);
     response.status(500).json({ message: 'Unable to adjust inventory' });
   }
 }

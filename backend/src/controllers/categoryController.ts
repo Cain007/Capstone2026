@@ -8,6 +8,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { recordAuditEvent } from '../utils/audit.js';
+import { logError } from '../utils/safeLogger.js';
 
 type CategoryRecord = {
   id: string;
@@ -115,7 +116,7 @@ export async function listCategories(_request: Request, response: Response) {
 
     response.json({ categories: categories.map(serializeCategory) });
   } catch (error) {
-    console.error('Listing categories failed:', error);
+    logError('Listing categories failed', error);
     response.status(500).json({ message: 'Unable to load categories' });
   }
 }
@@ -141,7 +142,7 @@ export async function getCategory(request: Request, response: Response) {
 
     response.json({ category: serializeCategory(category) });
   } catch (error) {
-    console.error('Loading category failed:', error);
+    logError('Loading category failed', error);
     response.status(500).json({ message: 'Unable to load category' });
   }
 }
@@ -212,7 +213,7 @@ export async function createCategory(request: Request, response: Response) {
 
     response.status(201).json({ category: serializeCategory(category) });
   } catch (error) {
-    console.error('Creating category failed:', error);
+    logError('Creating category failed', error);
     response.status(500).json({ message: 'Unable to create category' });
   }
 }
@@ -318,7 +319,7 @@ export async function updateCategory(request: Request, response: Response) {
 
     response.json({ category: serializeCategory(category) });
   } catch (error) {
-    console.error('Updating category failed:', error);
+    logError('Updating category failed', error);
     response.status(500).json({ message: 'Unable to update category' });
   }
 }
@@ -401,7 +402,7 @@ export async function deleteCategory(request: Request, response: Response) {
       }
     }
 
-    console.error('Deleting category failed:', error);
+    logError('Deleting category failed', error);
     response.status(500).json({ message: 'Unable to delete category' });
   }
 }

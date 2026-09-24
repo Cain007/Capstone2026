@@ -8,6 +8,7 @@ import { randomBytes } from 'node:crypto';
 import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
 import { recordAuditEvent } from '../utils/audit.js';
+import { logError } from '../utils/safeLogger.js';
 
 const PAYMENT_METHODS = ['CASH', 'CARD', 'E_WALLET', 'BANK_TRANSFER', 'OTHER'] as const;
 type PaymentMethod = (typeof PAYMENT_METHODS)[number];
@@ -404,7 +405,7 @@ export async function createSale(request: Request, response: Response) {
     response.status(409).json({ message: 'Unable to generate a unique sale number. Please try again.' });
     return;
   }
-  console.error('Creating sale failed:', lastError);
+  logError('Creating sale failed', lastError);
   response.status(500).json({ message: 'Unable to create sale' });
 }
 
@@ -427,7 +428,7 @@ export async function listSales(request: Request, response: Response) {
     });
     response.json({ sales: sales.map((sale) => ({ ...sale, cashier: safeUser(sale.cashier), itemCount: sale._count.items, _count: undefined })) });
   } catch (error) {
-    console.error('Listing sales failed:', error);
+    logError('Listing sales failed', error);
     response.status(500).json({ message: 'Unable to load sales' });
   }
 }
@@ -449,7 +450,7 @@ export async function getSale(request: Request, response: Response) {
     }
     response.json({ sale: serializeSale(sale) });
   } catch (error) {
-    console.error('Loading sale failed:', error);
+    logError('Loading sale failed', error);
     response.status(500).json({ message: 'Unable to load sale' });
   }
 }

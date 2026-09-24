@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { recordAuditEvent } from '../utils/audit.js';
+import { logError } from '../utils/safeLogger.js';
 
 type SupplierRecord = {
   id: string;
@@ -148,7 +149,7 @@ export async function listSuppliers(_request: Request, response: Response) {
 
     response.json({ suppliers: suppliers.map(serializeSupplier) });
   } catch (error) {
-    console.error('Listing suppliers failed:', error);
+    logError('Listing suppliers failed', error);
     response.status(500).json({ message: 'Unable to load suppliers' });
   }
 }
@@ -174,7 +175,7 @@ export async function getSupplier(request: Request, response: Response) {
 
     response.json({ supplier: serializeSupplier(supplier) });
   } catch (error) {
-    console.error('Loading supplier failed:', error);
+    logError('Loading supplier failed', error);
     response.status(500).json({ message: 'Unable to load supplier' });
   }
 }
@@ -294,7 +295,7 @@ export async function createSupplier(request: Request, response: Response) {
 
     response.status(201).json({ supplier: serializeSupplier(supplier) });
   } catch (error) {
-    console.error('Creating supplier failed:', error);
+    logError('Creating supplier failed', error);
     response.status(500).json({ message: 'Unable to create supplier' });
   }
 }
@@ -446,7 +447,7 @@ export async function updateSupplier(request: Request, response: Response) {
 
     response.json({ supplier: serializeSupplier(supplier) });
   } catch (error) {
-    console.error('Updating supplier failed:', error);
+    logError('Updating supplier failed', error);
     response.status(500).json({ message: 'Unable to update supplier' });
   }
 }
@@ -522,7 +523,7 @@ export async function deleteSupplier(request: Request, response: Response) {
       }
     }
 
-    console.error('Deleting supplier failed:', error);
+    logError('Deleting supplier failed', error);
     response.status(500).json({ message: 'Unable to delete supplier' });
   }
 }

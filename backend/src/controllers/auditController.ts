@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { logError } from '../utils/safeLogger.js';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 50;
@@ -299,7 +300,7 @@ export async function listAuditEvents(request: Request, response: Response) {
       pagination: paginationResponse(pagination.page, pagination.limit, total),
     });
   } catch (error) {
-    console.error('Listing audit events failed:', error);
+    logError('Listing audit events failed', error);
     response.status(500).json({ message: 'Unable to load audit events' });
   }
 }
@@ -387,7 +388,7 @@ export async function listLoginHistory(request: Request, response: Response) {
       pagination: paginationResponse(pagination.page, pagination.limit, total),
     });
   } catch (error) {
-    console.error('Listing login history failed:', error);
+    logError('Listing login history failed', error);
     response.status(500).json({ message: 'Unable to load login history' });
   }
 }

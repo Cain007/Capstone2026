@@ -7,6 +7,7 @@ import {
 } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { recordAuditEvent } from '../utils/audit.js';
+import { logError } from '../utils/safeLogger.js';
 import { cleanupProductImage } from '../services/productImageStorage.js';
 
 type ProductRecord = {
@@ -169,7 +170,7 @@ export async function listProducts(_request: Request, response: Response) {
 
     response.json({ products: products.map(serializeProduct) });
   } catch (error) {
-    console.error('Listing products failed:', error);
+    logError('Listing products failed', error);
     response.status(500).json({ message: 'Unable to load products' });
   }
 }
@@ -195,7 +196,7 @@ export async function getProduct(request: Request, response: Response) {
 
     response.json({ product: serializeProduct(product) });
   } catch (error) {
-    console.error('Loading product failed:', error);
+    logError('Loading product failed', error);
     response.status(500).json({ message: 'Unable to load product' });
   }
 }
@@ -328,7 +329,7 @@ export async function createProduct(request: Request, response: Response) {
       }
     }
 
-    console.error('Creating product failed:', error);
+    logError('Creating product failed', error);
     response.status(500).json({ message: 'Unable to create product' });
   }
 }
@@ -482,7 +483,7 @@ export async function updateProduct(request: Request, response: Response) {
       }
     }
 
-    console.error('Updating product failed:', error);
+    logError('Updating product failed', error);
     response.status(500).json({ message: 'Unable to update product' });
   }
 }
@@ -559,7 +560,7 @@ export async function deleteProduct(request: Request, response: Response) {
       }
     }
 
-    console.error('Deleting product failed:', error);
+    logError('Deleting product failed', error);
     response.status(500).json({ message: 'Unable to delete product' });
   }
 }

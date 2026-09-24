@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { prisma } from '../lib/prisma.js';
+import { logError } from '../utils/safeLogger.js';
 import {
   addDays,
   dateRange,
@@ -626,7 +627,7 @@ export async function getAdminDashboard(_request: Request, response: Response) {
       recentActivity: recentActivityDashboard.recentActivity,
     });
   } catch (error) {
-    console.error('Loading admin dashboard failed:', error);
+    logError('Loading admin dashboard failed', error);
     response.status(500).json({ message: 'Unable to load dashboard' });
   }
 }

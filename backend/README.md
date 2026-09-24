@@ -2,6 +2,9 @@
 
 Express API for the Sales and Inventory System Implementing Predictive Analysis.
 
+Production deployment targets Node 24.x; the package engine range enforces that
+major version for clean installs and hosted builds.
+
 ## Responsibilities
 
 - JWT authentication and role authorization.
@@ -17,8 +20,14 @@ Copy `.env.example` to `.env` and set:
 - `JWT_SECRET`
 - `PORT`
 - `FRONTEND_URL`
+- `NODE_ENV`
 
 Optional local demo seed variables are documented in `.env.example`. Keep `DEMO_SEED=false` for normal role-only seeding.
+
+When `NODE_ENV=production`, startup requires a PostgreSQL `DATABASE_URL`, a
+`JWT_SECRET` of at least 32 characters, a non-local HTTPS `FRONTEND_URL`, and all
+three Cloudinary variables. Bootstrap variables are intentionally not required
+for ordinary startup.
 
 ## Install
 
@@ -51,6 +60,24 @@ npx prisma db seed
 
 Normal seed creates/updates only the Admin and Staff roles. Set `DEMO_SEED=true` with demo credential env vars to load the defense dataset.
 
+## Initial Production Admin
+
+The first production Admin is created by an explicit one-time command. It is
+separate from the demo seed and never creates business data.
+
+1. Apply migrations and build the backend.
+2. Set `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_USERNAME`, and
+   `BOOTSTRAP_ADMIN_PASSWORD`. `BOOTSTRAP_ADMIN_NAME` is optional.
+3. Run `npm run bootstrap:admin` once.
+4. Sign in with the temporary credentials and complete the required password
+   change.
+5. Remove the bootstrap environment variables, especially
+   `BOOTSTRAP_ADMIN_PASSWORD`. Removing them does not affect the created account.
+
+The command skips successfully when an Admin already exists. It never resets or
+promotes an existing user. An email or username conflict fails without changing
+that account.
+
 ## Development
 
 ```powershell
@@ -70,6 +97,21 @@ npm run build
 npm start
 ```
 
+## Production Security
+
+- Helmet applies backend API security headers and disables the Express signature.
+- CORS allows only the configured `FRONTEND_URL`; non-browser requests remain supported.
+- Login allows five failed attempts per client IP in 15 minutes. Successful
+  responses are removed from the count and blocked requests receive `429` with
+  `Retry-After`.
+- Production trusts exactly one proxy hop for Railway's edge proxy. Do not expose
+  the service directly behind additional unconfigured proxy hops.
+- Unexpected failures use generic JSON responses. Server logs retain operation,
+  error type, and Prisma error code without raw error messages or secrets.
+
+Login limiting uses process memory. This is suitable for the initial
+single-instance deployment but is not shared across horizontally scaled instances.
+
 ## Route Groups
 
 - `/api/auth`
@@ -88,7 +130,8 @@ npm start
 
 ## Product Image Storage
 
-Optional server-only Cloudinary configuration in `.env`:
+Server-only Cloudinary configuration in `.env` is optional for local development
+and required when `NODE_ENV=production`:
 
 ```dotenv
 CLOUDINARY_CLOUD_NAME=
@@ -120,3 +163,27 @@ Remove-Item Env:RUN_DATABASE_IMAGE_TESTS
 ```
 
 The suite refuses non-local database hosts and removes only its own fixture records. Without the opt-in flag the integration suite is skipped. Live Cloudinary upload/delete verification remains a separate deployment check.
+
+### Admin Bootstrap Regression Tests
+
+The bootstrap suite creates a uniquely named schema in local PostgreSQL, applies
+the committed migrations, and drops only that schema after testing. It refuses
+non-local database hosts and requires an explicit opt-in:
+
+```powershell
+$env:RUN_DATABASE_BOOTSTRAP_TESTS='1'
+npm run test:bootstrap
+Remove-Item Env:RUN_DATABASE_BOOTSTRAP_TESTS
+```
+
+### Security Regression Tests
+
+The security suite uses a disposable schema in local PostgreSQL and removes it
+afterward. It covers production environment validation, Helmet, CORS, login
+limiting, authentication, forced password change, RBAC, and JSON errors:
+
+```powershell
+$env:RUN_DATABASE_SECURITY_TESTS='1'
+npm run test:security
+Remove-Item Env:RUN_DATABASE_SECURITY_TESTS
+```
